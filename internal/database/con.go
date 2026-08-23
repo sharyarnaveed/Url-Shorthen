@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -22,10 +23,13 @@ func Connect() {
 		os.Getenv("DB_NAME"),
 	)
 
-	var err error
+	config, err := pgxpool.ParseConfig(connString)
+	if err != nil {
+		log.Fatal(err)
+	}
+	config.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeExec
 
-	DB, err = pgxpool.New(context.Background(), connString)
-
+	DB, err = pgxpool.NewWithConfig(context.Background(), config)
 	if err != nil {
 		log.Fatal(err)
 	}

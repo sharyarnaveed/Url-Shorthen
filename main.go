@@ -41,6 +41,24 @@ func sendtoservice(w http.ResponseWriter, r *http.Request) {
 
 }
 
+func gettheredirect(w http.ResponseWriter, r *http.Request) {
+	getshortcode := r.PathValue("code")
+	if getshortcode == "" {
+
+		http.Error(w, "No Url", http.StatusBadRequest)
+		return
+
+	}
+	url, success := service.Getredirect(getshortcode)
+
+	if success == false {
+		http.Error(w, "cannot get the url", http.StatusBadRequest)
+		return
+	}
+
+	http.Redirect(w, r, url, http.StatusFound)
+}
+
 func main() {
 
 	err := godotenv.Load()
@@ -54,7 +72,7 @@ func main() {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("POST /save", sendtoservice)
-
+	mux.HandleFunc("GET /{code}", gettheredirect)
 	log.Println("Server running on :8080")
 
 	log.Fatal(http.ListenAndServe(":8080", mux))
