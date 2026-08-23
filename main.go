@@ -27,7 +27,7 @@ func sendtoservice(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "No Url", http.StatusBadRequest)
 		return
 	}
-	success := service.SaveURl(userurl.URL)
+	shortcode, success := service.SaveURl(userurl.URL)
 
 	if success == false {
 		http.Error(w, "Error in saving url", http.StatusBadRequest)
@@ -35,8 +35,9 @@ func sendtoservice(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"success":  true,
-		"meassage": "url saved",
+		"success":   true,
+		"meassage":  "url saved",
+		"shortCode": shortcode,
 	})
 
 }
@@ -71,7 +72,7 @@ func main() {
 
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("POST /save", sendtoservice)
+	mux.HandleFunc("POST /api/shorten", sendtoservice)
 	mux.HandleFunc("GET /{code}", gettheredirect)
 	log.Println("Server running on :8080")
 

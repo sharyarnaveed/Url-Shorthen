@@ -31,7 +31,7 @@ func generateshortcode(id int64) string {
 
 }
 
-func SaveURl(url string) bool {
+func SaveURl(url string) (string, bool) {
 	var success bool
 	var id int64
 	err := database.DB.QueryRow(
@@ -57,5 +57,5 @@ func SaveURl(url string) bool {
 		log.Fatal("data not saved foudn an error", err)
 	}
 	success = true
-	return success
+	return shortcode, success
 }

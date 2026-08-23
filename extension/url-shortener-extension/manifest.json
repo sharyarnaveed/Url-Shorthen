@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "Go URL Shortener",
+  "version": "1.0.0",
+  "description": "Shorten URLs using a Go backend",
+  "permissions": [
+    "tabs"
+  ],
+  "host_permissions": [
+    "http://localhost:8080/*"
+  ],
+  "action": {
+    "default_popup": "index.html"
+  }
+}
