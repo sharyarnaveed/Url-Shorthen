@@ -8,10 +8,18 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/sharyarnaveed/Url-Shorthen.git/internal/database"
 	"github.com/sharyarnaveed/Url-Shorthen.git/service"
+	"github.com/sharyarnaveed/Url-Shorthen.git/utils"
 )
 
 type CreateURLREQUEST struct {
 	URL string `json:"url"`
+}
+type CREATEACCOUNT struct {
+	FIRSTNAME  string `json:"firstname"`
+	LASTNAME   string `json:"lastname"`
+	EMAIL      string `json:"email"`
+	PASSWORD   string `json:"password"`
+	REPASSWORD string `json:"repassword"`
 }
 
 func sendtoservice(w http.ResponseWriter, r *http.Request) {
@@ -60,6 +68,43 @@ func gettheredirect(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, url, http.StatusFound)
 }
 
+func createuseraccount(w http.ResponseWriter, r *http.Request) {
+	var req CREATEACCOUNT
+
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	if req.FIRSTNAME == "" || req.LASTNAME == "" || req.EMAIL == "" || req.PASSWORD == "" || req.REPASSWORD == "" {
+		http.Error(w, "Missing Data", http.StatusBadRequest)
+		return
+
+	}
+
+	if req.PASSWORD != req.REPASSWORD {
+		http.Error(w, "Passwords are Not Same", http.StatusBadRequest)
+		return
+	}
+	success := utils.IsVerified(req.EMAIL)
+	if success != true {
+		http.Error(w, "Email not valid", http.StatusBadRequest)
+		return
+	}
+
+	firstnamevalid := utils.IsVerifiedName(req.FIRSTNAME)
+	if !firstnamevalid {
+		http.Error(w, "First Name not valid", http.StatusBadRequest)
+		return
+	}
+	lastnamevalid := utils.IsVerifiedName(req.LASTNAME)
+	if !lastnamevalid {
+		http.Error(w, "Last Name not valid", http.StatusBadRequest)
+		return
+	}
+
+}
+
 func main() {
 
 	err := godotenv.Load()
@@ -73,6 +118,8 @@ func main() {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("POST /api/shorten", sendtoservice)
+	mux.HandleFunc("POST /api/createaccount", createuseraccount)
+
 	mux.HandleFunc("GET /{code}", gettheredirect)
 	log.Println("Server running on :8080")
 
