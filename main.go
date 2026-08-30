@@ -103,6 +103,18 @@ func createuseraccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	createaccount := service.CreateAccount(req.FIRSTNAME, req.LASTNAME, req.EMAIL, req.PASSWORD)
+
+	if createaccount != true {
+		http.Error(w, "Error Creating Account", http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "Account Created",
+	})
 }
 
 func main() {
