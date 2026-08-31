@@ -243,6 +243,126 @@
   box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
 }
 
+.auth-field input:disabled {
+  cursor: not-allowed;
+  color: var(--gray-600);
+  background: var(--gray-100);
+}
+
+.auth-toast {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(360px, calc(100vw - 32px));
+  padding: 15px 18px 17px;
+  border: 1px solid;
+  border-radius: 14px;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.16);
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+  animation: toast-in 0.32s ease-out both;
+}
+
+.auth-toast::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  width: 100%;
+  transform-origin: left;
+}
+
+.auth-toast--success {
+  color: #064e3b;
+  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+  border-color: #86efac;
+}
+
+.auth-toast--success::after {
+  background: #10b981;
+}
+
+.auth-toast--error {
+  color: #7f1d1d;
+  background: linear-gradient(135deg, #fff7ed 0%, #fee2e2 100%);
+  border-color: #fecaca;
+  animation: toast-in 0.32s ease-out both, toast-shake 0.42s ease-out 0.1s both;
+}
+
+.auth-toast--error::after {
+  background: #ef4444;
+  animation: toast-progress 4.5s linear forwards;
+}
+
+.auth-toast-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.auth-toast--success .auth-toast-icon {
+  background: #059669;
+}
+
+.auth-toast--error .auth-toast-icon {
+  background: #dc2626;
+  font-size: 15px;
+}
+
+.auth-toast-message {
+  line-height: 1.45;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translate3d(18px, -12px, 0) scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes toast-shake {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+
+  30% {
+    transform: translate3d(-4px, 0, 0) scale(1);
+  }
+
+  60% {
+    transform: translate3d(4px, 0, 0) scale(1);
+  }
+}
+
+@keyframes toast-progress {
+  from {
+    transform: scaleX(1);
+  }
+
+  to {
+    transform: scaleX(0);
+  }
+}
+
 .auth-password-wrap {
   position: relative;
 }
@@ -372,6 +492,13 @@
 
   .auth-panel--right {
     padding: 40px 24px 48px;
+  }
+
+  .auth-toast {
+    top: 16px;
+    right: 16px;
+    left: 16px;
+    max-width: none;
   }
 }
 

@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import './Auth.css'
 
 const API_BASE_URL = import.meta.env.VITE_BACKENDURL || 'http://localhost:8080/api/'
+const CREATE_ACCOUNT_URL = `${API_BASE_URL.replace(/\/$/, '')}/createaccount`
 
 const STEPS = [
   { num: 1, label: 'Create your account', active: true },
@@ -15,6 +16,8 @@ function SignUp() {
   const [showPassword, setShowPassword] = useState(false)
   const [passwordError, setPasswordError] = useState('')
   const [submitError, setSubmitError] = useState('')
+  const [toast, setToast] = useState(null)
+  const [accountCreated, setAccountCreated] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [form, setForm] = useState({
     firstName: '',
@@ -24,27 +27,50 @@ function SignUp() {
     confirmPassword: '',
   })
 
+  useEffect(() => {
+    if (!toast || toast.type === 'success') {
+      return undefined
+    }
+
+    const timeout = window.setTimeout(() => {
+      setToast(null)
+    }, 4500)
+
+    return () => window.clearTimeout(timeout)
+  }, [toast])
+
   const handleChange = (e) => {
+    if (accountCreated) {
+      return
+    }
+
     const { name, value } = e.target
     setForm((prev) => ({ ...prev, [name]: value }))
     if (name === 'password' || name === 'confirmPassword') {
       setPasswordError('')
     }
     setSubmitError('')
+    setToast(null)
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (accountCreated) {
+      return
+    }
+
     if (form.password !== form.confirmPassword) {
       setPasswordError('Passwords do not match.')
+      setToast({ type: 'error', message: 'Passwords do not match.' })
       return
     }
 
     setIsSubmitting(true)
     setSubmitError('')
+    setToast(null)
 
     try {
-      const response = await fetch(`${API_BASE_URL}createaccount`, {
+      const response = await fetch(CREATE_ACCOUNT_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -63,9 +89,16 @@ function SignUp() {
         throw new Error(message || 'Unable to create account.')
       }
 
-      navigate('/choose-plan')
+      const data = await response.json()
+      setToast({
+        type: 'success',
+        message: data.message || 'Account created successfully.',
+      })
+      setAccountCreated(true)
     } catch (error) {
-      setSubmitError(error.message.trim() || 'Unable to create account.')
+      const message = error.message.trim() || 'Unable to create account.'
+      setSubmitError(message)
+      setToast({ type: 'error', message })
     } finally {
       setIsSubmitting(false)
     }
@@ -73,6 +106,19 @@ function SignUp() {
 
   return (
     <div className="auth-page">
+      {toast && (
+        <div
+          className={`auth-toast auth-toast--${toast.type}`}
+          role={toast.type === 'error' ? 'alert' : 'status'}
+          aria-live={toast.type === 'error' ? 'assertive' : 'polite'}
+        >
+          <span className="auth-toast-icon">
+            {toast.type === 'error' ? '!' : 'OK'}
+          </span>
+          <span className="auth-toast-message">{toast.message}</span>
+        </div>
+      )}
+
       <div className="auth-panel auth-panel--left">
         <div className="auth-panel-inner">
           <Link to="/" className="auth-back">
@@ -96,7 +142,9 @@ function SignUp() {
             {STEPS.map((step) => (
               <div
                 key={step.num}
-                className={`auth-step${step.active ? ' auth-step--active' : ''}`}
+                className={`auth-step${
+                  step.num === (accountCreated ? 2 : 1) ? ' auth-step--active' : ''
+                }`}
               >
                 <span className="auth-step-num">{step.num}</span>
                 <span className="auth-step-label">{step.label}</span>
@@ -132,6 +180,7 @@ function SignUp() {
                   placeholder="eg. John"
                   value={form.firstName}
                   onChange={handleChange}
+                  disabled={accountCreated}
                   required
                 />
               </div>
@@ -144,6 +193,7 @@ function SignUp() {
                   placeholder="eg. Francisco"
                   value={form.lastName}
                   onChange={handleChange}
+                  disabled={accountCreated}
                   required
                 />
               </div>
@@ -158,6 +208,7 @@ function SignUp() {
                 placeholder="eg. johnfrans@gmail.com"
                 value={form.email}
                 onChange={handleChange}
+                disabled={accountCreated}
                 required
               />
             </div>
@@ -173,6 +224,7 @@ function SignUp() {
                   value={form.password}
                   onChange={handleChange}
                   minLength={8}
+                  disabled={accountCreated}
                   required
                 />
                 <button
@@ -216,6 +268,7 @@ function SignUp() {
                   value={form.confirmPassword}
                   onChange={handleChange}
                   minLength={8}
+                  disabled={accountCreated}
                   required
                 />
                 <button
@@ -250,9 +303,19 @@ function SignUp() {
 
             {submitError && <span className="auth-error">{submitError}</span>}
 
-            <button type="submit" className="auth-submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Creating account...' : 'Continue'}
-            </button>
+            {accountCreated ? (
+              <button
+                type="button"
+                className="auth-submit"
+                onClick={() => navigate('/choose-plan')}
+              >
+                Next
+              </button>
+            ) : (
+              <button type="submit" className="auth-submit" disabled={isSubmitting}>
+                {isSubmitting ? 'Creating account...' : 'Create account'}
+              </button>
+            )}
           </form>
 
           <p className="auth-switch">
