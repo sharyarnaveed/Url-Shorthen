@@ -8,12 +8,32 @@ import (
 	"github.com/sharyarnaveed/Url-Shorthen.git/utils"
 )
 
-func CreateAccount(firstname, lastname, email, password string) bool {
+func CreateAccount(firstname, lastname, email, password string) (string, bool) {
+
+	var emailexsists string
+	var message string
+	therr := database.DB.QueryRow(
+		context.Background(),
+		`SELECT email from users WHERE email=$1`,
+		email,
+	).Scan(&emailexsists)
+	if therr == nil {
+		log.Fatal(therr)
+		message = "Error in Finding Email"
+		return message, false
+	}
+	if emailexsists != "" {
+		message = "Email already exsists"
+
+		return message, false
+	}
 
 	hashpasword, success := utils.HashPassword(password)
 
 	if success != true {
-		return false
+		message = "password failed to hash"
+
+		return message, false
 	}
 
 	_, err := database.DB.Exec(
@@ -24,14 +44,17 @@ func CreateAccount(firstname, lastname, email, password string) bool {
 
 	if err != nil {
 		log.Fatal(err)
-		return false
+		message = "error saving data"
+
+		return message, false
 	}
 
 	sendmail := utils.SendSmtpmail(email, "Your Account Has Been Created")
 
 	if sendmail != true {
-		return false
+		message = "falied to sned email"
+		return message, false
 	}
 
-	return true
+	return "Account Created", true
 }

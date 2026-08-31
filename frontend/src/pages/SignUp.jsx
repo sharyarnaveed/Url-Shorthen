@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import './Auth.css'
 
+const API_BASE_URL = import.meta.env.VITE_BACKENDURL || 'http://localhost:8080/api/'
+
 const STEPS = [
   { num: 1, label: 'Create your account', active: true },
   { num: 2, label: 'Choose your plan', active: false },
@@ -12,6 +14,8 @@ function SignUp() {
   const navigate = useNavigate()
   const [showPassword, setShowPassword] = useState(false)
   const [passwordError, setPasswordError] = useState('')
+  const [submitError, setSubmitError] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [form, setForm] = useState({
     firstName: '',
     lastName: '',
@@ -26,15 +30,45 @@ function SignUp() {
     if (name === 'password' || name === 'confirmPassword') {
       setPasswordError('')
     }
+    setSubmitError('')
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     if (form.password !== form.confirmPassword) {
       setPasswordError('Passwords do not match.')
       return
     }
-    navigate('/choose-plan')
+
+    setIsSubmitting(true)
+    setSubmitError('')
+
+    try {
+      const response = await fetch(`${API_BASE_URL}createaccount`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          firstname: form.firstName,
+          lastname: form.lastName,
+          email: form.email,
+          password: form.password,
+          repassword: form.confirmPassword,
+        }),
+      })
+
+      if (!response.ok) {
+        const message = await response.text()
+        throw new Error(message || 'Unable to create account.')
+      }
+
+      navigate('/choose-plan')
+    } catch (error) {
+      setSubmitError(error.message.trim() || 'Unable to create account.')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -214,8 +248,10 @@ function SignUp() {
               {passwordError && <span className="auth-error">{passwordError}</span>}
             </div>
 
-            <button type="submit" className="auth-submit">
-              Continue
+            {submitError && <span className="auth-error">{submitError}</span>}
+
+            <button type="submit" className="auth-submit" disabled={isSubmitting}>
+              {isSubmitting ? 'Creating account...' : 'Continue'}
             </button>
           </form>
 

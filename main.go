@@ -103,17 +103,31 @@ func createuseraccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	createaccount := service.CreateAccount(req.FIRSTNAME, req.LASTNAME, req.EMAIL, req.PASSWORD)
+	message, createaccount := service.CreateAccount(req.FIRSTNAME, req.LASTNAME, req.EMAIL, req.PASSWORD)
 
 	if createaccount != true {
-		http.Error(w, "Error Creating Account", http.StatusBadRequest)
+		http.Error(w, message, http.StatusBadRequest)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
-		"message": "Account Created",
+		"message": message,
+	})
+}
+
+func enablecors(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		next.ServeHTTP(w, r)
 	})
 }
 
@@ -133,7 +147,8 @@ func main() {
 	mux.HandleFunc("POST /api/createaccount", createuseraccount)
 
 	mux.HandleFunc("GET /{code}", gettheredirect)
+	handler := enablecors(mux)
 	log.Println("Server running on :8080")
 
-	log.Fatal(http.ListenAndServe(":8080", mux))
+	log.Fatal(http.ListenAndServe(":8080", handler))
 }

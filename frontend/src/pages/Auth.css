@@ -293,9 +293,20 @@
   transition: opacity 0.2s, transform 0.15s;
 }
 
+.auth-submit:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+  transform: none;
+}
+
 .auth-submit:hover {
   opacity: 0.9;
   transform: translateY(-1px);
+}
+
+.auth-submit:disabled:hover {
+  opacity: 0.65;
+  transform: none;
 }
 
 .auth-switch {
