@@ -31,7 +31,7 @@ const PLANS = [
       '100 URL shortenings per month',
       'Custom short links',
       'Click analytics',
-      'Includes trial period',
+      'Dashboard access',
     ],
   },
   {
@@ -43,9 +43,9 @@ const PLANS = [
     features: [
       'Unlimited URL shortenings',
       'Custom short links',
-      'Advanced analytics',
+      'Advanced click analytics',
       'Priority support',
-      'Includes trial period',
+      'Dashboard access',
     ],
   },
 ]
@@ -241,7 +241,7 @@ function Landing() {
         <span className="section-tag">Pricing</span>
         <h2 className="pricing-heading">Choose your plan</h2>
         <p className="pricing-sub">
-          All plans include a free trial. Trial: 2 days, up to 5 links.
+          Select a subscription plan to shorten links and access premium dashboard features.
         </p>
 
         <div className="pricing-cards">
@@ -277,7 +277,7 @@ function Landing() {
                 to="/signup"
                 className={`btn ${plan.highlight ? 'btn-dark' : 'btn-outline-dark'} btn-full`}
               >
-                Start free trial
+                Get Started
               </Link>
             </div>
           ))}
@@ -287,9 +287,9 @@ function Landing() {
       <section className="cta-section">
         <div className="cta-inner">
           <h2>Ready to shorten your first link?</h2>
-          <p>Paste a URL above or pick a plan and start your free trial today.</p>
+          <p>Sign up, choose your plan, and access your dashboard today.</p>
           <Link to="/signup" className="btn btn-light">
-            Try it now
+            Get Started Now
           </Link>
         </div>
       </section>

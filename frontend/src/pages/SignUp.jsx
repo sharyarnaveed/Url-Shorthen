@@ -7,8 +7,7 @@ const CREATE_ACCOUNT_URL = `${API_BASE_URL.replace(/\/$/, '')}/createaccount`
 
 const STEPS = [
   { num: 1, label: 'Create your account', active: true },
-  { num: 2, label: 'Choose your plan', active: false },
-  { num: 3, label: 'Shorten your first link', active: false },
+  { num: 2, label: 'Access your dashboard', active: false },
 ]
 
 function SignUp() {
@@ -56,6 +55,7 @@ function SignUp() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (accountCreated) {
+      navigate('/dashboard')
       return
     }
 
@@ -72,6 +72,7 @@ function SignUp() {
     try {
       const response = await fetch(CREATE_ACCOUNT_URL, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -90,15 +91,35 @@ function SignUp() {
       }
 
       const data = await response.json()
+
+      // Save user details for Dashboard
+      localStorage.setItem(
+        'shortlink_user',
+        JSON.stringify({
+          firstName: form.firstName,
+          lastName: form.lastName,
+          email: form.email,
+          plan: 'basic',
+          paymentStatus: 'Unpaid',
+          paymentMethod: 'Not Added Yet',
+        })
+      )
+
       setToast({
         type: 'success',
-        message: data.message || 'Account created successfully.',
+        message: data.message || 'Account created successfully! Redirecting to Dashboard...',
       })
       setAccountCreated(true)
+
+      // Direct user to Dashboard
+      setTimeout(() => {
+        navigate('/dashboard')
+      }, 1000)
     } catch (error) {
       const message = error.message.trim() || 'Unable to create account.'
       setSubmitError(message)
       setToast({ type: 'error', message })
+      setAccountCreated(false)
     } finally {
       setIsSubmitting(false)
     }
@@ -131,10 +152,9 @@ function SignUp() {
           </Link>
 
           <div className="auth-intro">
-            <h1>Start shortening with ShortLink</h1>
+            <h1>Create your ShortLink account</h1>
             <p>
-              Create your account and start your 2-day free trial. No credit card
-              required — pick a plan when you&apos;re ready.
+              Sign up to get instant access to your link management dashboard.
             </p>
           </div>
 
@@ -163,10 +183,7 @@ function SignUp() {
 
           <div className="auth-form-header">
             <h2>Create your account</h2>
-            <p>
-              Sign up to shorten links, track clicks, and manage your URLs in
-              one place.
-            </p>
+            <p>Enter your details below to create your account.</p>
           </div>
 
           <form className="auth-form" onSubmit={handleSubmit}>
@@ -307,13 +324,13 @@ function SignUp() {
               <button
                 type="button"
                 className="auth-submit"
-                onClick={() => navigate('/choose-plan')}
+                onClick={() => navigate('/dashboard')}
               >
-                Next
+                Go to Dashboard →
               </button>
             ) : (
               <button type="submit" className="auth-submit" disabled={isSubmitting}>
-                {isSubmitting ? 'Creating account...' : 'Create account'}
+                {isSubmitting ? 'Creating account...' : 'Create Account'}
               </button>
             )}
           </form>

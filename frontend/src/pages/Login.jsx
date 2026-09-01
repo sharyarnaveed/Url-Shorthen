@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import './Auth.css'
 
 const FEATURES = [
@@ -9,6 +9,7 @@ const FEATURES = [
 ]
 
 function Login() {
+  const navigate = useNavigate()
   const [showPassword, setShowPassword] = useState(false)
   const [form, setForm] = useState({ email: '', password: '' })
 
@@ -18,6 +19,19 @@ function Login() {
 
   const handleSubmit = (e) => {
     e.preventDefault()
+    // Save/update session in localStorage
+    localStorage.setItem(
+      'shortlink_user',
+      JSON.stringify({
+        firstName: 'John',
+        lastName: 'Francisco',
+        email: form.email || 'johnfrans@gmail.com',
+        plan: 'basic',
+        paymentStatus: 'Paid',
+        paymentMethod: 'Visa •••• 4242',
+      })
+    )
+    navigate('/dashboard')
   }
 
   return (
@@ -120,7 +134,7 @@ function Login() {
             </div>
 
             <button type="submit" className="auth-submit">
-              Log In
+              Log In to Dashboard →
             </button>
           </form>
 

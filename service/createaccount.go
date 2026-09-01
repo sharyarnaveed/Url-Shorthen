@@ -2,30 +2,35 @@ package service
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"log"
+	"strconv"
 
 	"github.com/sharyarnaveed/Url-Shorthen.git/internal/database"
 	"github.com/sharyarnaveed/Url-Shorthen.git/utils"
 )
 
-func CreateAccount(firstname, lastname, email, password string) (string, bool) {
+func CreateAccount(firstname, lastname, email, password string) (string, bool, string) {
 
 	var emailexsists string
 	var message string
+	var id int64
+
 	therr := database.DB.QueryRow(
 		context.Background(),
 		`SELECT email from users WHERE email=$1`,
 		email,
 	).Scan(&emailexsists)
-	if therr == nil {
-		log.Fatal(therr)
+	if therr != nil && !errors.Is(therr, sql.ErrNoRows) {
+		log.Println(therr)
 		message = "Error in Finding Email"
-		return message, false
+		return message, false, ""
 	}
 	if emailexsists != "" {
 		message = "Email already exsists"
 
-		return message, false
+		return message, false, ""
 	}
 
 	hashpasword, success := utils.HashPassword(password)
@@ -33,28 +38,28 @@ func CreateAccount(firstname, lastname, email, password string) (string, bool) {
 	if success != true {
 		message = "password failed to hash"
 
-		return message, false
+		return message, false, ""
 	}
 
-	_, err := database.DB.Exec(
+	err := database.DB.QueryRow(
 		context.Background(),
-		`INSERT INTO users (firstname,lastname,email,password) values ($1,$2,$3,$4)`,
+		`INSERT INTO users (firstname,lastname,email,password) values ($1,$2,$3,$4) RETURNING id`,
 		firstname, lastname, email, hashpasword,
-	)
+	).Scan(&id)
 
 	if err != nil {
 		log.Fatal(err)
 		message = "error saving data"
 
-		return message, false
+		return message, false, ""
 	}
 
 	sendmail := utils.SendSmtpmail(email, "Your Account Has Been Created")
 
 	if sendmail != true {
 		message = "falied to sned email"
-		return message, false
+		return message, false, ""
 	}
 
-	return "Account Created", true
+	return "Account Created", true, strconv.FormatInt(id, 10)
 }

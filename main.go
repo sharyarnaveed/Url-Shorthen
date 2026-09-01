@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/joho/godotenv"
 	"github.com/sharyarnaveed/Url-Shorthen.git/internal/database"
@@ -103,12 +104,36 @@ func createuseraccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	message, createaccount := service.CreateAccount(req.FIRSTNAME, req.LASTNAME, req.EMAIL, req.PASSWORD)
+	message, createaccount, userid := service.CreateAccount(req.FIRSTNAME, req.LASTNAME, req.EMAIL, req.PASSWORD)
 
 	if createaccount != true {
 		http.Error(w, message, http.StatusBadRequest)
 		return
 	}
+	if userid == "" {
+		http.Error(w, "Failed to get user id", http.StatusBadRequest)
+		return
+	}
+	user_id, err := strconv.Atoi(userid)
+	if err != nil {
+		http.Error(w, "Failed to convert userid ", http.StatusBadRequest)
+		return
+	}
+
+	token, thesucc := utils.CreateToken(user_id)
+	if thesucc != true {
+		http.Error(w, "Failed to generate token ", http.StatusBadRequest)
+		return
+	}
+	http.SetCookie(w, &http.Cookie{
+		Name:     "token",
+		Value:    token,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   false,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   3 * 24 * 60 * 60,
+	})
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
@@ -120,6 +145,7 @@ func createuseraccount(w http.ResponseWriter, r *http.Request) {
 func enablecors(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 

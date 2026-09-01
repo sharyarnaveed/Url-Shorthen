@@ -6,24 +6,10 @@ import './ChoosePlan.css'
 const STEPS = [
   { num: 1, label: 'Create your account', active: false },
   { num: 2, label: 'Choose your plan', active: true },
-  { num: 3, label: 'Shorten your first link', active: false },
+  { num: 3, label: 'Shorten links in dashboard', active: false },
 ]
 
 const PLANS = [
-  {
-    id: 'trial',
-    name: 'Free Trial',
-    price: 0,
-    period: '2 days',
-    description: 'Try ShortLink free — no credit card required.',
-    features: [
-      'Valid for 2 days',
-      'Shorten up to 5 links',
-      'Basic click analytics',
-      'Upgrade anytime',
-    ],
-    badge: null,
-  },
   {
     id: 'basic',
     name: 'Basic',
@@ -34,7 +20,7 @@ const PLANS = [
       '100 URL shortenings per month',
       'Custom short links',
       'Click analytics',
-      'Includes trial period',
+      'Dashboard access',
     ],
     badge: null,
   },
@@ -47,9 +33,9 @@ const PLANS = [
     features: [
       'Unlimited URL shortenings',
       'Custom short links',
-      'Advanced analytics',
-      'Priority support',
-      'Includes trial period',
+      'Advanced click analytics',
+      'Priority 24/7 support',
+      'Dashboard access',
     ],
     badge: 'Most popular',
   },
@@ -57,10 +43,30 @@ const PLANS = [
 
 function ChoosePlan() {
   const navigate = useNavigate()
-  const [selected, setSelected] = useState('trial')
+  const [selected, setSelected] = useState('basic')
 
   const handleContinue = () => {
-    navigate('/')
+    // Save selected plan to localStorage
+    const savedUser = localStorage.getItem('shortlink_user')
+    let userObj = {
+      firstName: 'John',
+      lastName: 'Francisco',
+      email: 'johnfrans@gmail.com',
+      plan: selected,
+      paymentStatus: 'Paid',
+      paymentMethod: 'Visa •••• 4242',
+    }
+
+    if (savedUser) {
+      try {
+        userObj = { ...JSON.parse(savedUser), plan: selected, paymentStatus: 'Paid' }
+      } catch {
+        /* empty */
+      }
+    }
+
+    localStorage.setItem('shortlink_user', JSON.stringify(userObj))
+    navigate('/dashboard')
   }
 
   return (
@@ -79,8 +85,7 @@ function ChoosePlan() {
           <div className="auth-intro">
             <h1>Pick the plan that fits you</h1>
             <p>
-              Start with a 2-day free trial (5 links) or choose a plan now. You can
-              always switch later from your dashboard.
+              Select a paid plan to unlock full URL shortening features and management tools in your dashboard.
             </p>
           </div>
 
@@ -107,14 +112,16 @@ function ChoosePlan() {
 
           <div className="plan-header">
             <h2>Choose your plan</h2>
-            <p>Select a plan to continue. All paid plans include a trial period.</p>
+            <p>Select a subscription plan to continue to your dashboard.</p>
           </div>
 
           <div className="plan-options">
             {PLANS.map((plan) => (
               <label
                 key={plan.id}
-                className={`plan-option${selected === plan.id ? ' plan-option--selected' : ''}${plan.badge ? ' plan-option--featured' : ''}`}
+                className={`plan-option${selected === plan.id ? ' plan-option--selected' : ''}${
+                  plan.badge ? ' plan-option--featured' : ''
+                }`}
               >
                 <input
                   type="radio"
@@ -132,14 +139,8 @@ function ChoosePlan() {
                       <p className="plan-option-desc">{plan.description}</p>
                     </div>
                     <div className="plan-option-price">
-                      {plan.price === 0 ? (
-                        <span className="plan-price-free">Free</span>
-                      ) : (
-                        <>
-                          <span className="plan-price-amount">${plan.price}</span>
-                          <span className="plan-price-period">/ {plan.period}</span>
-                        </>
-                      )}
+                      <span className="plan-price-amount">${plan.price}</span>
+                      <span className="plan-price-period">/ {plan.period}</span>
                     </div>
                   </div>
 
@@ -156,12 +157,8 @@ function ChoosePlan() {
           </div>
 
           <button type="button" className="auth-submit" onClick={handleContinue}>
-            {selected === 'trial' ? 'Start free trial' : 'Continue with plan'}
+            Continue to Dashboard →
           </button>
-
-          <p className="auth-switch">
-            <Link to="/">Skip for now</Link>
-          </p>
         </div>
       </div>
     </div>
