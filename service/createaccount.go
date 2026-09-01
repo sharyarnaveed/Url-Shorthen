@@ -2,11 +2,11 @@ package service
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"log"
 	"strconv"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/sharyarnaveed/Url-Shorthen.git/internal/database"
 	"github.com/sharyarnaveed/Url-Shorthen.git/utils"
 )
@@ -22,7 +22,7 @@ func CreateAccount(firstname, lastname, email, password string) (string, bool, s
 		`SELECT email from users WHERE email=$1`,
 		email,
 	).Scan(&emailexsists)
-	if therr != nil && !errors.Is(therr, sql.ErrNoRows) {
+	if therr != nil && !errors.Is(therr, pgx.ErrNoRows) {
 		log.Println(therr)
 		message = "Error in Finding Email"
 		return message, false, ""
@@ -48,7 +48,7 @@ func CreateAccount(firstname, lastname, email, password string) (string, bool, s
 	).Scan(&id)
 
 	if err != nil {
-		log.Fatal(err)
+		log.Println("Error inserting user:", err)
 		message = "error saving data"
 
 		return message, false, ""

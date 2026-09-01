@@ -12,8 +12,8 @@ func HashPassword(password string) (string, bool) {
 		bcrypt.DefaultCost,
 	)
 	if err != nil {
-		log.Fatal(err)
-
+		log.Println("Password hash error:", err)
+		return "", false
 	}
 	return string(hash), true
 }

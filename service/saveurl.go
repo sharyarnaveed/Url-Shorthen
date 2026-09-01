@@ -32,7 +32,6 @@ func generateshortcode(id int64) string {
 }
 
 func SaveURl(url string) (string, bool) {
-	var success bool
 	var id int64
 	err := database.DB.QueryRow(
 		context.Background(),
@@ -40,9 +39,8 @@ func SaveURl(url string) (string, bool) {
 		url,
 	).Scan(&id)
 	if err != nil {
-		success = false
-		log.Fatal("data not saved foudn an error", err)
-
+		log.Println("data not saved found an error:", err)
+		return "", false
 	}
 	shortcode := generateshortcode(id)
 
@@ -53,9 +51,8 @@ func SaveURl(url string) (string, bool) {
 		shortcode, id,
 	)
 	if errinudpating != nil {
-		success = false
-		log.Fatal("data not saved foudn an error", err)
+		log.Println("data not saved found an error:", errinudpating)
+		return "", false
 	}
-	success = true
-	return shortcode, success
+	return shortcode, true
 }

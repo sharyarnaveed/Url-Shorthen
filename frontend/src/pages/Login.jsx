@@ -1,6 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import './Auth.css'
+
+const API_BASE_URL = import.meta.env.VITE_BACKENDURL || 'http://localhost:8080/api/'
+const LOGIN_URL = `${API_BASE_URL.replace(/\/$/, '')}/login`
 
 const FEATURES = [
   { num: 1, label: 'Shorten any long URL instantly' },
@@ -12,30 +15,107 @@ function Login() {
   const navigate = useNavigate()
   const [showPassword, setShowPassword] = useState(false)
   const [form, setForm] = useState({ email: '', password: '' })
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState('')
+  const [toast, setToast] = useState(null)
+
+  useEffect(() => {
+    if (!toast || toast.type === 'success') {
+      return undefined
+    }
+
+    const timeout = window.setTimeout(() => {
+      setToast(null)
+    }, 4500)
+
+    return () => window.clearTimeout(timeout)
+  }, [toast])
 
   const handleChange = (e) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }))
+    setSubmitError('')
+    setToast(null)
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    // Save/update session in localStorage
-    localStorage.setItem(
-      'shortlink_user',
-      JSON.stringify({
-        firstName: 'John',
-        lastName: 'Francisco',
-        email: form.email || 'johnfrans@gmail.com',
+    setIsSubmitting(true)
+    setSubmitError('')
+    setToast(null)
+
+    try {
+      const response = await fetch(LOGIN_URL, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: form.email,
+          password: form.password,
+        }),
+      })
+
+      if (!response.ok) {
+        const message = await response.text()
+        throw new Error(message || 'Invalid email or password.')
+      }
+
+      const data = await response.json()
+
+      const existingUserStr = localStorage.getItem('shortlink_user')
+      let userData = {
+        firstName: 'User',
+        lastName: 'Account',
+        email: form.email,
         plan: 'basic',
         paymentStatus: 'Paid',
         paymentMethod: 'Visa •••• 4242',
+      }
+
+      if (existingUserStr) {
+        try {
+          const parsed = JSON.parse(existingUserStr)
+          userData = { ...parsed, email: form.email }
+        } catch {
+          /* empty */
+        }
+      }
+
+      localStorage.setItem('shortlink_user', JSON.stringify(userData))
+
+      setToast({
+        type: 'success',
+        message: data.message || 'Login successful! Redirecting to Dashboard...',
       })
-    )
-    navigate('/dashboard')
+
+      setTimeout(() => {
+        navigate('/dashboard')
+      }, 1000)
+    } catch (error) {
+      const message = error.message.trim() || 'Invalid email or password.'
+      setSubmitError(message)
+      setToast({ type: 'error', message })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
     <div className="auth-page">
+      {toast && (
+        <div
+          className={`auth-toast auth-toast--${toast.type}`}
+          role={toast.type === 'error' ? 'alert' : 'status'}
+          aria-live={toast.type === 'error' ? 'assertive' : 'polite'}
+        >
+          <span className="auth-toast-icon">
+            {toast.type === 'error' ? '!' : 'OK'}
+          </span>
+          <span className="auth-toast-message">{toast.message}</span>
+        </div>
+      )}
+
       <div className="auth-panel auth-panel--left">
         <div className="auth-panel-inner">
           <Link to="/" className="auth-back">
@@ -88,6 +168,7 @@ function Login() {
                 placeholder="eg. johnfrans@gmail.com"
                 value={form.email}
                 onChange={handleChange}
+                disabled={isSubmitting}
                 required
               />
             </div>
@@ -102,6 +183,7 @@ function Login() {
                   placeholder="Enter your password"
                   value={form.password}
                   onChange={handleChange}
+                  disabled={isSubmitting}
                   required
                 />
                 <button
@@ -133,8 +215,10 @@ function Login() {
               </div>
             </div>
 
-            <button type="submit" className="auth-submit">
-              Log In to Dashboard →
+            {submitError && <span className="auth-error">{submitError}</span>}
+
+            <button type="submit" className="auth-submit" disabled={isSubmitting}>
+              {isSubmitting ? 'Logging in...' : 'Log In to Dashboard →'}
             </button>
           </form>
 
@@ -148,3 +232,4 @@ function Login() {
 }
 
 export default Login
+

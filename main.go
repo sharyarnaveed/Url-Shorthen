@@ -23,6 +23,11 @@ type CREATEACCOUNT struct {
 	REPASSWORD string `json:"repassword"`
 }
 
+type SIGNINUSER struct {
+	EMAIL    string `json:"email"`
+	PASSWORD string `json:"password"`
+}
+
 func sendtoservice(w http.ResponseWriter, r *http.Request) {
 	var userurl CreateURLREQUEST
 	err := json.NewDecoder(r.Body).Decode(&userurl)
@@ -142,6 +147,61 @@ func createuseraccount(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func signINUser(w http.ResponseWriter, r *http.Request) {
+	var req SIGNINUSER
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.EMAIL == "" || req.PASSWORD == "" {
+		http.Error(w, "Missing Data", http.StatusBadRequest)
+		return
+	}
+
+	userid, themessage, success := service.UserSignIn(req.EMAIL, req.PASSWORD)
+
+	if success != true {
+		http.Error(w, themessage, http.StatusBadRequest)
+		return
+	}
+
+	if userid == "" {
+		http.Error(w, "Failed to get user id", http.StatusBadRequest)
+		return
+	}
+
+	user_id, err := strconv.Atoi(userid)
+
+	if err != nil {
+		http.Error(w, "Failed to convert userid ", http.StatusBadRequest)
+		return
+	}
+
+	token, thesucc := utils.CreateToken(user_id)
+	if thesucc != true {
+		http.Error(w, "Failed to generate token ", http.StatusBadRequest)
+		return
+	}
+	http.SetCookie(w, &http.Cookie{
+		Name:     "token",
+		Value:    token,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   false,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   3 * 24 * 60 * 60,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "Login Successful",
+	})
+
+}
+
 func enablecors(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
@@ -170,7 +230,24 @@ func main() {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("POST /api/shorten", sendtoservice)
+	mux.HandleFunc("POST /shorten", sendtoservice)
+
 	mux.HandleFunc("POST /api/createaccount", createuseraccount)
+	mux.HandleFunc("POST /createaccount", createuseraccount)
+
+	mux.HandleFunc("POST /api/login", signINUser)
+	mux.HandleFunc("POST /api/login/", signINUser)
+	mux.HandleFunc("POST /login", signINUser)
+	mux.HandleFunc("POST /login/", signINUser)
+	mux.HandleFunc("POST /api/signin", signINUser)
+	mux.HandleFunc("POST /api/signin/", signINUser)
+
+	mux.HandleFunc("GET /api/login", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"message": "Login API endpoint. Send a POST request with email and password.",
+		})
+	})
 
 	mux.HandleFunc("GET /{code}", gettheredirect)
 	handler := enablecors(mux)

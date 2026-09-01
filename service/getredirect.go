@@ -10,7 +10,6 @@ import (
 
 func Getredirect(shortcode string) (string, bool) {
 	var redirecturl string
-	var success bool
 
 	err := database.DB.QueryRow(
 		context.Background(),
@@ -19,10 +18,9 @@ func Getredirect(shortcode string) (string, bool) {
 	).Scan(&redirecturl)
 
 	if err != nil {
-		success = false
-		log.Fatal("URL NOT FOUND", err)
+		log.Println("URL NOT FOUND:", err)
+		return "", false
 	}
-	success = true
 	fmt.Println(redirecturl)
-	return redirecturl, success
+	return redirecturl, true
 }

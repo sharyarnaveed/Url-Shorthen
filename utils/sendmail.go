@@ -31,7 +31,7 @@ func SendSmtpmail(email, message string) bool {
 	)
 
 	if err != nil {
-		log.Fatal(err)
+		log.Println("Send mail error:", err)
 		return false
 	}
 
