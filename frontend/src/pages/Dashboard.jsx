@@ -1,41 +1,10 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { QRCodeSVG } from 'qrcode.react'
 import './Dashboard.css'
 
 const API_BASE_URL = import.meta.env.VITE_BACKENDURL || 'http://localhost:8080/api/'
-
-const INITIAL_LINKS = [
-  {
-    id: 'link-1',
-    originalUrl: 'https://github.com/sharyarnaveed/Url-Shorthen',
-    shortCode: 'short.link/gh-repo',
-    fullShortUrl: 'http://localhost:8080/gh-repo',
-    title: 'GitHub Repository',
-    createdAt: '2026-08-28',
-    clicks: 342,
-    status: 'Active',
-  },
-  {
-    id: 'link-2',
-    originalUrl: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript',
-    shortCode: 'short.link/js-docs',
-    fullShortUrl: 'http://localhost:8080/js-docs',
-    title: 'MDN JavaScript Docs',
-    createdAt: '2026-08-30',
-    clicks: 189,
-    status: 'Active',
-  },
-  {
-    id: 'link-3',
-    originalUrl: 'https://react.dev/reference/react/useState',
-    shortCode: 'short.link/react-hooks',
-    fullShortUrl: 'http://localhost:8080/react-hooks',
-    title: 'React Hooks Reference',
-    createdAt: '2026-09-01',
-    clicks: 95,
-    status: 'Active',
-  },
-]
+const SHORT_URL_BASE = import.meta.env.VITE_SHORTURL || 'http://localhost:8080'
 
 const PLANS = [
   {
@@ -88,18 +57,8 @@ function Dashboard() {
   const [newShortLink, setNewShortLink] = useState(null)
   const [shortenError, setShortenError] = useState('')
 
-  // Links List
-  const [links, setLinks] = useState(() => {
-    const saved = localStorage.getItem('shortlink_user_links')
-    if (saved) {
-      try {
-        return JSON.parse(saved)
-      } catch {
-        /* empty */
-      }
-    }
-    return INITIAL_LINKS
-  })
+  // Links List (loaded from DB via GET /api/geturls)
+  const [links, setLinks] = useState([])
 
   // Search filter
   const [searchQuery, setSearchQuery] = useState('')
@@ -129,14 +88,10 @@ function Dashboard() {
   })
   const [isUpdatingPayment, setIsUpdatingPayment] = useState(false)
 
-  // Persist user and links to localStorage
+  // Persist user to localStorage
   useEffect(() => {
     localStorage.setItem('shortlink_user', JSON.stringify(user))
   }, [user])
-
-  useEffect(() => {
-    localStorage.setItem('shortlink_user_links', JSON.stringify(links))
-  }, [links])
 
   // Toast auto dismiss
   useEffect(() => {
@@ -149,10 +104,59 @@ function Dashboard() {
     setToast({ type, message })
   }
 
+  // Helper to fetch user specific URLs from GET /api/geturls
+  const loadUserUrls = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL.replace(/\/$/, '')}/geturls`, {
+        method: 'GET',
+        credentials: 'include',
+      })
+      if (!res.ok) return null
+
+      const data = await res.json()
+      const rawList = Array.isArray(data) ? data : (data === null ? [] : null)
+      if (rawList !== null) {
+        const shortUrlBase = SHORT_URL_BASE.replace(/\/$/, '')
+        return rawList.map((item) => {
+          const fullShortUrl = `${shortUrlBase}/${item.short_code}`
+          return {
+            id: `link-${item.id}`,
+            originalUrl: item.original_url,
+            shortCode: fullShortUrl,
+            fullShortUrl: fullShortUrl,
+            title: item.title || item.original_url.replace(/^https?:\/\//, '').split('/')[0] || 'Short Link',
+            createdAt: new Date().toISOString().split('T')[0],
+            clicks: 0,
+            status: 'Active',
+          }
+        })
+      }
+    } catch {
+      /* ignore fetch error */
+    }
+    return null
+  }
+
+  // Fetch user URLs on mount
+  useEffect(() => {
+    let isMounted = true
+    localStorage.removeItem('shortlink_user_links')
+    loadUserUrls().then((formatted) => {
+      if (isMounted && formatted !== null) {
+        setLinks(formatted)
+      }
+    })
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
   // Handle URL Shorten
   const handleShorten = async (e) => {
     e.preventDefault()
-    if (!longUrl.trim()) return
+    const trimmedUrl = longUrl.trim()
+    const trimmedTitle = customTitle.trim()
+    if (!trimmedUrl || !trimmedTitle) return
 
     // Require paid plan
     if (user.paymentStatus !== 'Paid') {
@@ -166,36 +170,36 @@ function Dashboard() {
     setNewShortLink(null)
 
     try {
-      let generatedCode = ''
-      let fullUrl = ''
+      const res = await fetch(`${API_BASE_URL.replace(/\/$/, '')}/shorten`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ url: trimmedUrl, title: trimmedTitle }),
+      })
 
-      // Attempt to hit backend endpoint if available
-      try {
-        const res = await fetch(`${API_BASE_URL.replace(/\/$/, '')}/shorten`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: longUrl }),
-        })
-        if (res.ok) {
-          const data = await res.json()
-          generatedCode = data.shortCode
-          fullUrl = `${window.location.origin.replace(':5173', ':8080')}/${generatedCode}`
+      if (!res.ok) {
+        const errorText = await res.text()
+        if (res.status === 401) {
+          throw new Error('Unauthorized. Please log in to shorten URLs.')
         }
-      } catch {
-        /* Backend unreachable, fallback to client code generation */
+        throw new Error(errorText || 'Failed to shorten URL.')
       }
 
-      if (!generatedCode) {
-        generatedCode = Math.random().toString(36).substring(2, 8)
-        fullUrl = `http://localhost:8080/${generatedCode}`
+      const data = await res.json()
+      if (!data.shortCode) {
+        throw new Error('Invalid response from server.')
       }
+
+      const generatedCode = data.shortCode
+      const shortUrlBase = SHORT_URL_BASE.replace(/\/$/, '')
+      const fullUrl = `${shortUrlBase}/${generatedCode}`
 
       const newLinkObj = {
         id: `link-${Date.now()}`,
-        originalUrl: longUrl,
-        shortCode: `short.link/${generatedCode}`,
+        originalUrl: trimmedUrl,
+        shortCode: fullUrl,
         fullShortUrl: fullUrl,
-        title: customTitle.trim() || longUrl.replace(/^https?:\/\//, '').split('/')[0] || 'Short Link',
+        title: trimmedTitle,
         createdAt: new Date().toISOString().split('T')[0],
         clicks: 0,
         status: 'Active',
@@ -206,8 +210,15 @@ function Dashboard() {
       setLongUrl('')
       setCustomTitle('')
       showToast('success', 'URL shortened successfully!')
+
+      const refreshed = await loadUserUrls()
+      if (refreshed) {
+        setLinks(refreshed)
+      }
     } catch (err) {
-      setShortenError(err.message || 'Failed to shorten URL.')
+      const msg = err.message || 'Failed to shorten URL.'
+      setShortenError(msg)
+      showToast('error', msg)
     } finally {
       setIsShortening(false)
     }
@@ -542,13 +553,14 @@ function Dashboard() {
                   </div>
 
                   <div className="dash-field flex-grow-sm">
-                    <label htmlFor="customTitle">Title / Alias (Optional)</label>
+                    <label htmlFor="customTitle">Title / Alias *</label>
                     <input
                       id="customTitle"
                       type="text"
                       placeholder="eg. Campaign Link"
                       value={customTitle}
                       onChange={(e) => setCustomTitle(e.target.value)}
+                      required
                     />
                   </div>
                 </div>
@@ -1074,30 +1086,14 @@ function Dashboard() {
             </div>
             <div className="dash-modal-body">
               <div className="dash-qr-preview">
-                {/* SVG mock QR Code */}
-                <svg width="180" height="180" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect width="200" height="200" fill="white" rx="16" />
-                  <rect x="20" y="20" width="50" height="50" fill="#0d9488" rx="8" />
-                  <rect x="30" y="30" width="30" height="30" fill="white" rx="4" />
-                  <rect x="38" y="38" width="14" height="14" fill="#0d9488" rx="2" />
-                  
-                  <rect x="130" y="20" width="50" height="50" fill="#0d9488" rx="8" />
-                  <rect x="140" y="30" width="30" height="30" fill="white" rx="4" />
-                  <rect x="148" y="38" width="14" height="14" fill="#0d9488" rx="2" />
-
-                  <rect x="20" y="130" width="50" height="50" fill="#0d9488" rx="8" />
-                  <rect x="30" y="140" width="30" height="30" fill="white" rx="4" />
-                  <rect x="38" y="148" width="14" height="14" fill="#0d9488" rx="2" />
-
-                  <rect x="85" y="20" width="30" height="15" fill="#111827" rx="3" />
-                  <rect x="85" y="45" width="15" height="25" fill="#111827" rx="3" />
-                  <rect x="110" y="85" width="25" height="15" fill="#111827" rx="3" />
-                  <rect x="85" y="110" width="30" height="20" fill="#111827" rx="3" />
-                  <rect x="140" y="110" width="40" height="20" fill="#111827" rx="3" />
-                  <rect x="130" y="140" width="20" height="40" fill="#111827" rx="3" />
-                  <rect x="160" y="160" width="20" height="20" fill="#0d9488" rx="3" />
-                  <rect x="90" y="150" width="25" height="30" fill="#111827" rx="3" />
-                </svg>
+                <QRCodeSVG
+                  value={qrModalLink.fullShortUrl || ''}
+                  size={180}
+                  bgColor="#ffffff"
+                  fgColor="#000000"
+                  level="M"
+                  marginSize={2}
+                />
               </div>
               <p className="dash-qr-title">{qrModalLink.title}</p>
               <code className="dash-qr-url">{qrModalLink.fullShortUrl}</code>

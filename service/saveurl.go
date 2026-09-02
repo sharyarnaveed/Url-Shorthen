@@ -31,12 +31,12 @@ func generateshortcode(id int64) string {
 
 }
 
-func SaveURl(url string) (string, bool) {
+func SaveURl(url string, userid int64, title string) (string, bool) {
 	var id int64
 	err := database.DB.QueryRow(
 		context.Background(),
-		`INSERT INTO urls (original_url) values ($1) RETURNING id`,
-		url,
+		`INSERT INTO urls (original_url, userid, title) values ($1, $2, $3) RETURNING id`,
+		url, userid, title,
 	).Scan(&id)
 	if err != nil {
 		log.Println("data not saved found an error:", err)

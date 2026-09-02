@@ -8,12 +8,14 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/sharyarnaveed/Url-Shorthen.git/internal/database"
+	"github.com/sharyarnaveed/Url-Shorthen.git/middleware"
 	"github.com/sharyarnaveed/Url-Shorthen.git/service"
 	"github.com/sharyarnaveed/Url-Shorthen.git/utils"
 )
 
 type CreateURLREQUEST struct {
-	URL string `json:"url"`
+	TITLE string `json:"title"`
+	URL   string `json:"url"`
 }
 type CREATEACCOUNT struct {
 	FIRSTNAME  string `json:"firstname"`
@@ -31,17 +33,18 @@ type SIGNINUSER struct {
 func sendtoservice(w http.ResponseWriter, r *http.Request) {
 	var userurl CreateURLREQUEST
 	err := json.NewDecoder(r.Body).Decode(&userurl)
+	userid := r.Context().Value("user_id").(int64)
 
 	if err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	if userurl.URL == "" {
+	if userurl.URL == "" || userurl.TITLE == "" {
 		http.Error(w, "No Url", http.StatusBadRequest)
 		return
 	}
-	shortcode, success := service.SaveURl(userurl.URL)
+	shortcode, success := service.SaveURl(userurl.URL, userid, userurl.TITLE)
 
 	if success == false {
 		http.Error(w, "Error in saving url", http.StatusBadRequest)
@@ -217,6 +220,60 @@ func enablecors(next http.Handler) http.Handler {
 	})
 }
 
+func getuserurls(w http.ResponseWriter, r *http.Request) {
+	userid, ok := r.Context().Value("user_id").(int64)
+	if !ok {
+		log.Println("getuserurls: missing user_id in context")
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	rows, err := database.DB.Query(
+		r.Context(),
+		"SELECT id, original_url, COALESCE(short_code, ''), COALESCE(title, '') FROM urls WHERE userid = $1",
+		userid,
+	)
+	if err != nil {
+		log.Println("getuserurls Query error:", err)
+		http.Error(w, "Database error", 500)
+		return
+	}
+
+	defer rows.Close()
+
+	user := []map[string]interface{}{}
+
+	for rows.Next() {
+		var id int
+		var originalurl, shortcode, title string
+
+		if err := rows.Scan(&id, &originalurl, &shortcode, &title); err != nil {
+			log.Println("getuserurls Scan error:", err)
+			http.Error(w, "Database scan error", 500)
+			return
+		}
+
+		user = append(user, map[string]interface{}{
+			"id":           id,
+			"title":        title,
+			"original_url": originalurl,
+			"short_code":   shortcode,
+		})
+	}
+
+	if err := rows.Err(); err != nil {
+		log.Println("getuserurls rows iteration error:", err)
+		http.Error(w, "Database error", 500)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(user); err != nil {
+		http.Error(w, "Encoding error", 500)
+		return
+	}
+}
+
 func main() {
 
 	err := godotenv.Load()
@@ -229,8 +286,7 @@ func main() {
 
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("POST /api/shorten", sendtoservice)
-	mux.HandleFunc("POST /shorten", sendtoservice)
+	mux.Handle("POST /api/shorten", middleware.AuthMiddleware(http.HandlerFunc(sendtoservice)))
 
 	mux.HandleFunc("POST /api/createaccount", createuseraccount)
 	mux.HandleFunc("POST /createaccount", createuseraccount)
@@ -241,6 +297,7 @@ func main() {
 	mux.HandleFunc("POST /login/", signINUser)
 	mux.HandleFunc("POST /api/signin", signINUser)
 	mux.HandleFunc("POST /api/signin/", signINUser)
+	mux.Handle("GET /api/geturls", middleware.AuthMiddleware(http.HandlerFunc(getuserurls)))
 
 	mux.HandleFunc("GET /api/login", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
