@@ -61,6 +61,45 @@ function Dashboard() {
     paymentMethod: 'Not Added Yet',
   })
 
+  // Fetch user profile on mount
+  useEffect(() => {
+    let isMounted = true
+    const fetchUserData = async () => {
+      try {
+        const base = API_BASE_URL.replace(/\/$/, '')
+        const res = await fetch(`${base}/getuserdata`, {
+          method: 'GET',
+          credentials: 'include',
+        })
+        if (!res.ok) return
+        const data = await res.json()
+
+        // backend may return an array or object
+        const u = Array.isArray(data) ? data[0] : data
+        if (!u) return
+
+        if (isMounted) {
+          setUser((prev) => ({
+            ...prev,
+            firstName: u.firstname || u.firstName || prev.firstName,
+            lastName: u.lastname || u.lastName || prev.lastName,
+            email: u.email || prev.email,
+            plan: u.plan || prev.plan,
+            paymentStatus: u.paymentStatus || prev.paymentStatus,
+            paymentMethod: u.paymentMethod || prev.paymentMethod,
+          }))
+        }
+      } catch (err) {
+        /* ignore */
+      }
+    }
+
+    fetchUserData()
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
   // URL Shortening State
   const [longUrl, setLongUrl] = useState('')
   const [customTitle, setCustomTitle] = useState('')

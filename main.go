@@ -333,6 +333,61 @@ func checkauth(w http.ResponseWriter, r *http.Request) {
 		"message": "Authenticated",
 	})
 }
+
+func userdata(w http.ResponseWriter, r *http.Request) {
+	userid, ok := r.Context().Value("user_id").(int64)
+
+	if !ok || userid == 0 {
+		log.Println("checkauth: missing user_id in context")
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	rows, err := database.DB.Query(
+		r.Context(),
+		"SELECT firstname,lastname, email from users  WHERE id = $1",
+		userid,
+	)
+	if err != nil {
+		log.Println("getuserurls Query error:", err)
+		http.Error(w, "Database error", 500)
+		return
+	}
+
+	defer rows.Close()
+
+	user := []map[string]interface{}{}
+
+	for rows.Next() {
+
+		var firstname, lastname, email string
+
+		if err := rows.Scan(&firstname, &lastname, &email); err != nil {
+			log.Println("getuserurls Scan error:", err)
+			http.Error(w, "Database scan error", 500)
+			return
+		}
+
+		user = append(user, map[string]interface{}{
+
+			"firstname": firstname,
+			"lastname":  lastname,
+			"email":     email,
+		})
+	}
+
+	if err := rows.Err(); err != nil {
+		log.Println("getuserurls rows iteration error:", err)
+		http.Error(w, "Database error", 500)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(user); err != nil {
+		http.Error(w, "Encoding error", 500)
+		return
+	}
+
+}
 func main() {
 
 	err := godotenv.Load()
@@ -356,6 +411,7 @@ func main() {
 	mux.HandleFunc("POST /login/", signINUser)
 	mux.HandleFunc("POST /api/signin", signINUser)
 	mux.HandleFunc("POST /api/signin/", signINUser)
+	mux.Handle("GET /api/getuserdata", middleware.AuthMiddleware(http.HandlerFunc(userdata)))
 	mux.Handle("GET /api/checkauth", middleware.AuthMiddleware(http.HandlerFunc(checkauth)))
 	mux.Handle("GET /api/geturls", middleware.AuthMiddleware(http.HandlerFunc(getuserurls)))
 	mux.Handle("DELETE /api/deleteurl", middleware.AuthMiddleware(http.HandlerFunc(deleteshortlink)))
