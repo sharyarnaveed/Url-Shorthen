@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useAuth } from '../auth/AuthContext'
 import './Auth.css'
 
 const API_BASE_URL = import.meta.env.VITE_BACKENDURL || 'http://localhost:8080/api/'
@@ -13,6 +14,8 @@ const FEATURES = [
 
 function Login() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const { markAuthenticated } = useAuth()
   const [showPassword, setShowPassword] = useState(false)
   const [form, setForm] = useState({ email: '', password: '' })
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -63,26 +66,8 @@ function Login() {
 
       const data = await response.json()
 
-      const existingUserStr = localStorage.getItem('shortlink_user')
-      let userData = {
-        firstName: 'User',
-        lastName: 'Account',
-        email: form.email,
-        plan: 'basic',
-        paymentStatus: 'Paid',
-        paymentMethod: 'Visa •••• 4242',
-      }
-
-      if (existingUserStr) {
-        try {
-          const parsed = JSON.parse(existingUserStr)
-          userData = { ...parsed, email: form.email }
-        } catch {
-          /* empty */
-        }
-      }
-
-      localStorage.setItem('shortlink_user', JSON.stringify(userData))
+      markAuthenticated()
+      const redirectTo = location.state?.from?.pathname || '/dashboard'
 
       setToast({
         type: 'success',
@@ -90,7 +75,7 @@ function Login() {
       })
 
       setTimeout(() => {
-        navigate('/dashboard')
+        navigate(redirectTo, { replace: true })
       }, 1000)
     } catch (error) {
       const message = error.message.trim() || 'Invalid email or password.'

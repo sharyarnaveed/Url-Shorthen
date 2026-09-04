@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -28,6 +29,10 @@ type CREATEACCOUNT struct {
 type SIGNINUSER struct {
 	EMAIL    string `json:"email"`
 	PASSWORD string `json:"password"`
+}
+
+type DELETLINK struct {
+	ID int `json:"id"`
 }
 
 func sendtoservice(w http.ResponseWriter, r *http.Request) {
@@ -274,6 +279,60 @@ func getuserurls(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func deleteshortlink(w http.ResponseWriter, r *http.Request) {
+	var linkid DELETLINK
+	err := json.NewDecoder(r.Body).Decode(&linkid)
+	if err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if linkid.ID == 0 {
+		http.Error(w, "Missing id", http.StatusBadRequest)
+		return
+	}
+
+	success := service.DeleteShortLink(int64(linkid.ID))
+	if success != true {
+		http.Error(w, "failed to delete the link", http.StatusBadRequest)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":  true,
+		"meassage": "Url deleted",
+	})
+}
+
+func checkauth(w http.ResponseWriter, r *http.Request) {
+	userid, ok := r.Context().Value("user_id").(int64)
+
+	if !ok || userid == 0 {
+		log.Println("checkauth: missing user_id in context")
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var userID int64
+
+	err := database.DB.QueryRow(
+		context.Background(),
+		`SELECT id FROM users WHERE id=$1`,
+		userid,
+	).Scan(&userID)
+
+	if err != nil {
+		log.Println("checkauth: user does not exist:", err)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "Authenticated",
+	})
+}
 func main() {
 
 	err := godotenv.Load()
@@ -297,8 +356,9 @@ func main() {
 	mux.HandleFunc("POST /login/", signINUser)
 	mux.HandleFunc("POST /api/signin", signINUser)
 	mux.HandleFunc("POST /api/signin/", signINUser)
+	mux.Handle("GET /api/checkauth", middleware.AuthMiddleware(http.HandlerFunc(checkauth)))
 	mux.Handle("GET /api/geturls", middleware.AuthMiddleware(http.HandlerFunc(getuserurls)))
-
+	mux.Handle("DELETE /api/deleteurl", middleware.AuthMiddleware(http.HandlerFunc(deleteshortlink)))
 	mux.HandleFunc("GET /api/login", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{

@@ -72,3 +72,17 @@ input {
   background: var(--teal-light);
   color: var(--black);
 }
+
+.route-status {
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  letter-spacing: 0.02em;
+  color: var(--gray-600);
+  background:
+    radial-gradient(circle at top, rgba(94, 234, 212, 0.18), transparent 34%),
+    linear-gradient(180deg, var(--cream), var(--cream-dark));
+}

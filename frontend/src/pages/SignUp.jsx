@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useAuth } from '../auth/AuthContext'
 import './Auth.css'
 
 const API_BASE_URL = import.meta.env.VITE_BACKENDURL || 'http://localhost:8080/api/'
@@ -12,6 +13,8 @@ const STEPS = [
 
 function SignUp() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const { markAuthenticated } = useAuth()
   const [showPassword, setShowPassword] = useState(false)
   const [passwordError, setPasswordError] = useState('')
   const [submitError, setSubmitError] = useState('')
@@ -92,18 +95,8 @@ function SignUp() {
 
       const data = await response.json()
 
-      // Save user details for Dashboard
-      localStorage.setItem(
-        'shortlink_user',
-        JSON.stringify({
-          firstName: form.firstName,
-          lastName: form.lastName,
-          email: form.email,
-          plan: 'basic',
-          paymentStatus: 'Unpaid',
-          paymentMethod: 'Not Added Yet',
-        })
-      )
+      markAuthenticated()
+      const redirectTo = location.state?.from?.pathname || '/dashboard'
 
       setToast({
         type: 'success',
@@ -111,9 +104,8 @@ function SignUp() {
       })
       setAccountCreated(true)
 
-      // Direct user to Dashboard
       setTimeout(() => {
-        navigate('/dashboard')
+        navigate(redirectTo, { replace: true })
       }, 1000)
     } catch (error) {
       const message = error.message.trim() || 'Unable to create account.'

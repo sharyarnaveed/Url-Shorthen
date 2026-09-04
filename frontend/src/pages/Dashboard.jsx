@@ -1,6 +1,26 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { QRCodeSVG } from 'qrcode.react'
+import { useAuth } from '../auth/AuthContext'
+import {
+  AlertTriangle,
+  ArrowRight,
+  BarChart3,
+  Check,
+  CheckCircle2,
+  Copy,
+  CreditCard,
+  Grid2x2,
+  Link2,
+  LogOut,
+  QrCode,
+  Search,
+  ShieldCheck,
+  Sparkles,
+  Star,
+  Trash2,
+  X,
+} from 'lucide-react'
 import './Dashboard.css'
 
 const API_BASE_URL = import.meta.env.VITE_BACKENDURL || 'http://localhost:8080/api/'
@@ -26,28 +46,19 @@ const PLANS = [
 
 function Dashboard() {
   const navigate = useNavigate()
+  const { logout } = useAuth()
 
   // Navigation tab: 'overview' | 'links' | 'payment' | 'settings'
   const [activeTab, setActiveTab] = useState('overview')
 
   // User state
-  const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem('shortlink_user')
-    if (saved) {
-      try {
-        return JSON.parse(saved)
-      } catch {
-        /* empty */
-      }
-    }
-    return {
-      firstName: 'John',
-      lastName: 'Francisco',
-      email: 'johnfrans@gmail.com',
-      plan: 'basic',
-      paymentStatus: 'Unpaid',
-      paymentMethod: 'Not Added Yet',
-    }
+  const [user, setUser] = useState({
+    firstName: 'User',
+    lastName: 'Account',
+    email: 'Signed in',
+    plan: 'basic',
+    paymentStatus: 'Unpaid',
+    paymentMethod: 'Not Added Yet',
   })
 
   // URL Shortening State
@@ -68,6 +79,7 @@ function Dashboard() {
 
   // QR Code Modal state
   const [qrModalLink, setQrModalLink] = useState(null)
+  const [deleteConfirmLink, setDeleteConfirmLink] = useState(null)
 
   // Password state
   const [passwordForm, setPasswordForm] = useState({
@@ -88,11 +100,6 @@ function Dashboard() {
   })
   const [isUpdatingPayment, setIsUpdatingPayment] = useState(false)
 
-  // Persist user to localStorage
-  useEffect(() => {
-    localStorage.setItem('shortlink_user', JSON.stringify(user))
-  }, [user])
-
   // Toast auto dismiss
   useEffect(() => {
     if (!toast) return
@@ -102,6 +109,11 @@ function Dashboard() {
 
   const showToast = (type, message) => {
     setToast({ type, message })
+  }
+
+  const handleLogout = () => {
+    logout()
+    navigate('/login', { replace: true })
   }
 
   // Helper to fetch user specific URLs from GET /api/geturls
@@ -120,7 +132,7 @@ function Dashboard() {
         return rawList.map((item) => {
           const fullShortUrl = `${shortUrlBase}/${item.short_code}`
           return {
-            id: `link-${item.id}`,
+            id: item.id,
             originalUrl: item.original_url,
             shortCode: fullShortUrl,
             fullShortUrl: fullShortUrl,
@@ -140,7 +152,6 @@ function Dashboard() {
   // Fetch user URLs on mount
   useEffect(() => {
     let isMounted = true
-    localStorage.removeItem('shortlink_user_links')
     loadUserUrls().then((formatted) => {
       if (isMounted && formatted !== null) {
         setLinks(formatted)
@@ -235,9 +246,52 @@ function Dashboard() {
   }
 
   // Delete Link
-  const handleDeleteLink = (id) => {
-    setLinks((prev) => prev.filter((item) => item.id !== id))
-    showToast('success', 'Short link deleted.')
+  const handleDeleteLink = async (id) => {
+    const numericId = Number(id)
+    if (Number.isNaN(numericId)) {
+      showToast('error', 'Invalid link id.')
+      return
+    }
+
+    const baseUrl = API_BASE_URL.replace(/\/$/, '')
+    try {
+      const res = await fetch(`${baseUrl}/deleteurl`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ id: numericId }),
+      })
+
+      if (!res.ok) {
+        const errorText = await res.text()
+        throw new Error(errorText || 'Failed to delete link.')
+      }
+
+      showToast('success', 'Short link deleted.')
+
+      const refreshed = await loadUserUrls()
+      if (refreshed !== null) {
+        setLinks(refreshed)
+      }
+      return
+    } catch (err) {
+      showToast('error', err?.message || 'Failed to delete link.')
+    }
+  }
+
+  const openDeleteConfirm = (link) => {
+    setDeleteConfirmLink(link)
+  }
+
+  const cancelDeleteConfirm = () => {
+    setDeleteConfirmLink(null)
+  }
+
+  const confirmDeleteLink = async () => {
+    if (!deleteConfirmLink) return
+    const linkToDelete = deleteConfirmLink
+    setDeleteConfirmLink(null)
+    await handleDeleteLink(linkToDelete.id)
   }
 
   // Handle Change Password
@@ -307,7 +361,9 @@ function Dashboard() {
       {/* Toast Notification */}
       {toast && (
         <div className={`dash-toast dash-toast--${toast.type}`}>
-          <span className="dash-toast-icon">{toast.type === 'error' ? '⚠️' : '✓'}</span>
+          <span className="dash-toast-icon">
+            {toast.type === 'error' ? <AlertTriangle size={16} /> : <CheckCircle2 size={16} />}
+          </span>
           <span>{toast.message}</span>
         </div>
       )}
@@ -358,18 +414,10 @@ function Dashboard() {
             <button
               type="button"
               className="dash-logout-btn"
-              onClick={() => navigate('/login')}
+              onClick={handleLogout}
               title="Log Out"
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                <path
-                  d="M16 17l5-5-5-5M21 12H9M9 3H5a2 2 0 00-2 2v14a2 2 0 002 2h4"
-                  stroke="currentColor"
-                  strokeWidth="1.75"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
+              <LogOut size={18} />
               Logout
             </button>
           </div>
@@ -385,15 +433,7 @@ function Dashboard() {
             className={`dash-tab ${activeTab === 'overview' ? 'dash-tab--active' : ''}`}
             onClick={() => setActiveTab('overview')}
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <path
-                d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"
-                stroke="currentColor"
-                strokeWidth="1.75"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+            <Grid2x2 size={18} />
             Overview &amp; Shorten
           </button>
 
@@ -455,7 +495,9 @@ function Dashboard() {
         {/* Payment Warning Banner if Unpaid */}
         {user.paymentStatus !== 'Paid' && (
           <div className="dash-warning-banner">
-            <div className="dash-warning-icon">⚠️</div>
+            <div className="dash-warning-icon">
+              <AlertTriangle size={18} />
+            </div>
             <div className="dash-warning-text">
               <strong>Action Required: Subscription Unpaid</strong>
               <p>Your account requires an active paid plan ($2/mo Basic or $5/mo Unlimited) to shorten new links.</p>
@@ -478,7 +520,7 @@ function Dashboard() {
               <div className="dash-metric-card">
                 <div className="dash-metric-header">
                   <span className="dash-metric-title">Total Links</span>
-                  <span className="dash-metric-icon">🔗</span>
+                  <span className="dash-metric-icon"><Link2 size={18} /></span>
                 </div>
                 <div className="dash-metric-value">{links.length}</div>
                 <div className="dash-metric-sub">Active short URLs</div>
@@ -487,7 +529,7 @@ function Dashboard() {
               <div className="dash-metric-card">
                 <div className="dash-metric-header">
                   <span className="dash-metric-title">Total Clicks</span>
-                  <span className="dash-metric-icon">📈</span>
+                  <span className="dash-metric-icon"><BarChart3 size={18} /></span>
                 </div>
                 <div className="dash-metric-value">{totalClicks.toLocaleString()}</div>
                 <div className="dash-metric-sub">+18% this month</div>
@@ -496,7 +538,7 @@ function Dashboard() {
               <div className="dash-metric-card">
                 <div className="dash-metric-header">
                   <span className="dash-metric-title">Top Link</span>
-                  <span className="dash-metric-icon">⭐</span>
+                  <span className="dash-metric-icon"><Star size={18} /></span>
                 </div>
                 <div className="dash-metric-value dash-metric-value--sm">
                   {topLink ? topLink.title : 'None yet'}
@@ -509,7 +551,7 @@ function Dashboard() {
               <div className="dash-metric-card">
                 <div className="dash-metric-header">
                   <span className="dash-metric-title">Payment Status</span>
-                  <span className="dash-metric-icon">💳</span>
+                  <span className="dash-metric-icon"><CreditCard size={18} /></span>
                 </div>
                 <div className="dash-metric-value dash-metric-value--sm">
                   <span className={`dash-status-pill dash-status-pill--${user.paymentStatus === 'Paid' ? 'paid' : 'unpaid'}`}>
@@ -568,7 +610,14 @@ function Dashboard() {
                 {shortenError && <p className="dash-form-error">{shortenError}</p>}
 
                 <button type="submit" className="dash-submit-btn" disabled={isShortening}>
-                  {isShortening ? 'Generating Short Link...' : 'Shorten URL ✨'}
+                  {isShortening ? (
+                    'Generating Short Link...'
+                  ) : (
+                    <>
+                      <Sparkles size={16} />
+                      Shorten URL
+                    </>
+                  )}
                 </button>
               </form>
 
@@ -592,14 +641,16 @@ function Dashboard() {
                         className="dash-btn-secondary"
                         onClick={() => handleCopy(newShortLink.fullShortUrl)}
                       >
-                        📋 Copy Link
+                        <Copy size={16} />
+                        Copy Link
                       </button>
                       <button
                         type="button"
                         className="dash-btn-secondary"
                         onClick={() => setQrModalLink(newShortLink)}
                       >
-                        📱 QR Code
+                        <QrCode size={16} />
+                        QR Code
                       </button>
                     </div>
                   </div>
@@ -619,7 +670,8 @@ function Dashboard() {
                   className="dash-btn-text"
                   onClick={() => setActiveTab('links')}
                 >
-                  View All ({links.length}) →
+                  View All ({links.length})
+                  <ArrowRight size={16} />
                 </button>
               </div>
 
@@ -665,7 +717,7 @@ function Dashboard() {
                               onClick={() => handleCopy(link.fullShortUrl)}
                               title="Copy Short Link"
                             >
-                              📋
+                              <Copy size={16} />
                             </button>
                             <button
                               type="button"
@@ -673,15 +725,15 @@ function Dashboard() {
                               onClick={() => setQrModalLink(link)}
                               title="View QR Code"
                             >
-                              📱
+                              <QrCode size={16} />
                             </button>
                             <button
                               type="button"
                               className="dash-icon-btn dash-icon-btn--danger"
-                              onClick={() => handleDeleteLink(link.id)}
+                              onClick={() => openDeleteConfirm(link)}
                               title="Delete Link"
                             >
-                              🗑️
+                              <Trash2 size={16} />
                             </button>
                           </div>
                         </td>
@@ -722,7 +774,7 @@ function Dashboard() {
 
               {filteredLinks.length === 0 ? (
                 <div className="dash-empty-state">
-                  <div className="dash-empty-icon">🔍</div>
+                  <div className="dash-empty-icon"><Search size={28} /></div>
                   <h3>No shortened URLs found</h3>
                   <p>Try searching for a different keyword or shorten your first URL!</p>
                   <button
@@ -781,7 +833,8 @@ function Dashboard() {
                                 onClick={() => handleCopy(link.fullShortUrl)}
                                 title="Copy Link"
                               >
-                                📋 Copy
+                                <Copy size={14} />
+                                Copy
                               </button>
                               <button
                                 type="button"
@@ -789,15 +842,16 @@ function Dashboard() {
                                 onClick={() => setQrModalLink(link)}
                                 title="QR Code"
                               >
-                                📱 QR Code
+                                <QrCode size={14} />
+                                QR Code
                               </button>
                               <button
                                 type="button"
                                 className="dash-icon-btn dash-icon-btn--danger"
-                                onClick={() => handleDeleteLink(link.id)}
+                                onClick={() => openDeleteConfirm(link)}
                                 title="Delete"
                               >
-                                🗑️
+                                <Trash2 size={14} />
                               </button>
                             </div>
                           </td>
@@ -891,7 +945,10 @@ function Dashboard() {
                         </div>
                         <ul className="dash-plan-features-list">
                           {plan.features.map((feat) => (
-                            <li key={feat}>✓ {feat}</li>
+                            <li key={feat}>
+                            <Check size={14} />
+                            {feat}
+                          </li>
                           ))}
                         </ul>
                       </div>
@@ -962,11 +1019,19 @@ function Dashboard() {
                   </div>
 
                   <button type="submit" className="dash-submit-btn" disabled={isUpdatingPayment}>
-                    {isUpdatingPayment ? 'Processing Payment...' : 'Confirm & Activate Subscription 🔒'}
+                    {isUpdatingPayment ? (
+                      'Processing Payment...'
+                    ) : (
+                      <>
+                        <ShieldCheck size={16} />
+                        Confirm &amp; Activate Subscription
+                      </>
+                    )}
                   </button>
 
                   <p className="dash-secure-note">
-                    🔒 256-Bit SSL Encrypted &amp; Secure Payment Processing
+                    <ShieldCheck size={14} />
+                    256-Bit SSL Encrypted &amp; Secure Payment Processing
                   </p>
                 </form>
               </section>
@@ -1081,7 +1146,7 @@ function Dashboard() {
                 className="dash-modal-close"
                 onClick={() => setQrModalLink(null)}
               >
-                ✕
+                <X size={18} />
               </button>
             </div>
             <div className="dash-modal-body">
@@ -1105,6 +1170,48 @@ function Dashboard() {
                   onClick={() => handleCopy(qrModalLink.fullShortUrl)}
                 >
                   Copy Link
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmLink && (
+        <div className="dash-modal-backdrop" onClick={cancelDeleteConfirm}>
+          <div className="dash-modal-box" onClick={(e) => e.stopPropagation()}>
+            <div className="dash-modal-header">
+              <h3>Delete Short Link?</h3>
+              <button
+                type="button"
+                className="dash-modal-close"
+                onClick={cancelDeleteConfirm}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="dash-modal-body">
+              <p className="dash-delete-confirm-text">
+                Are you sure you want to delete <strong>{deleteConfirmLink.title}</strong>?
+                This action cannot be undone.
+              </p>
+              <code className="dash-qr-url">{deleteConfirmLink.fullShortUrl}</code>
+
+              <div className="dash-modal-actions">
+                <button
+                  type="button"
+                  className="dash-btn-secondary"
+                  onClick={cancelDeleteConfirm}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="dash-submit-btn"
+                  onClick={confirmDeleteLink}
+                >
+                  Yes, Delete
                 </button>
               </div>
             </div>

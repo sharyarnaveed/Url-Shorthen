@@ -46,26 +46,6 @@ function ChoosePlan() {
   const [selected, setSelected] = useState('basic')
 
   const handleContinue = () => {
-    // Save selected plan to localStorage
-    const savedUser = localStorage.getItem('shortlink_user')
-    let userObj = {
-      firstName: 'John',
-      lastName: 'Francisco',
-      email: 'johnfrans@gmail.com',
-      plan: selected,
-      paymentStatus: 'Paid',
-      paymentMethod: 'Visa •••• 4242',
-    }
-
-    if (savedUser) {
-      try {
-        userObj = { ...JSON.parse(savedUser), plan: selected, paymentStatus: 'Paid' }
-      } catch {
-        /* empty */
-      }
-    }
-
-    localStorage.setItem('shortlink_user', JSON.stringify(userObj))
     navigate('/dashboard')
   }
 
