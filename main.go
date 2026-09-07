@@ -5,9 +5,12 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 
+	"github.com/PaddleHQ/paddle-go-sdk/v5"
 	"github.com/joho/godotenv"
+	"github.com/sharyarnaveed/Url-Shorthen.git/internal"
 	"github.com/sharyarnaveed/Url-Shorthen.git/internal/database"
 	"github.com/sharyarnaveed/Url-Shorthen.git/middleware"
 	"github.com/sharyarnaveed/Url-Shorthen.git/service"
@@ -388,6 +391,33 @@ func userdata(w http.ResponseWriter, r *http.Request) {
 	}
 
 }
+
+func paddleWebhook(w http.ResponseWriter, r *http.Request) {
+	secrete := os.Getenv("PADDLE_WEBHOOK_SECRET")
+	if secrete == "" {
+		http.Error(w, "Webhook secret is not configured", http.StatusInternalServerError)
+		return
+	}
+	verifier := paddle.NewWebhookVerifier(secrete)
+
+	valid, err := verifier.Verify(r)
+	if err != nil {
+		log.Printf("Paddle webhook verification error: %v", err)
+		http.Error(w, "Invalid webhook", http.StatusBadRequest)
+		return
+	}
+
+	if !valid {
+		http.Error(w, "Invalid webhook signature", http.StatusUnauthorized)
+		return
+	}
+
+	log.Println("Paddle webhook signature verified")
+
+	w.WriteHeader(http.StatusOK)
+
+}
+
 func main() {
 
 	err := godotenv.Load()
@@ -397,7 +427,11 @@ func main() {
 	}
 
 	database.Connect()
-
+	paddleclient, errors := internal.NewClient()
+	if errors != nil {
+		log.Fatal(err)
+	}
+	_ = paddleclient
 	mux := http.NewServeMux()
 
 	mux.Handle("POST /api/shorten", middleware.AuthMiddleware(http.HandlerFunc(sendtoservice)))
@@ -415,6 +449,7 @@ func main() {
 	mux.Handle("GET /api/checkauth", middleware.AuthMiddleware(http.HandlerFunc(checkauth)))
 	mux.Handle("GET /api/geturls", middleware.AuthMiddleware(http.HandlerFunc(getuserurls)))
 	mux.Handle("DELETE /api/deleteurl", middleware.AuthMiddleware(http.HandlerFunc(deleteshortlink)))
+	mux.HandleFunc("POST /api/webhook/paddle", paddleWebhook)
 	mux.HandleFunc("GET /api/login", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
