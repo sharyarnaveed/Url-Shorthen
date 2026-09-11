@@ -352,24 +352,26 @@ function Dashboard() {
   }
 
   // Handle Plan Selection
-  const handleSelectPlan = async(plan) => {
-    if(plan.id=="basic"){
-      try {
-        await openCheckout(import.meta.env.VITE_BASIC_PRICE_PADDLE)
-      } catch (error) {
-            console.error("Failed to open Paddle checkout:", error);
-      }
-    }else if (plan.id=="pro")
-    {
-      try {
-        await openCheckout(import.meta.env.VITE_PRO_PRICE_PADDLE)
-      } catch (error) {
-            console.error("Failed to open Paddle checkout:", error);
-      }
-    }
-    else{
+  const handleSelectPlan = async (plan) => {
+    let priceId = ''
+    if (plan.id === 'basic') {
+      priceId = import.meta.env.VITE_BASIC_PRICE_PADDLE
+    } else if (plan.id === 'pro') {
+      priceId = import.meta.env.VITE_PRO_PRICE_PADDLE
+    } else {
       return
     }
+
+    try {
+      const res = await fetch(`${API_BASE_URL.replace(/\/$/, '')}/getuserid`, {
+        credentials: 'include',
+      })
+      const userId = await res.json()
+      await openCheckout(priceId, userId)
+    } catch (error) {
+      console.error("Failed to open Paddle checkout:", error);
+    }
+
     setSelectedPlanForPayment(plan.id)
     console.log(`[Plan Selected] Name: ${plan.name}, Price: $${plan.price}/mo, ID: ${plan.id}`)
   }

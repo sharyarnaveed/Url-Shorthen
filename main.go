@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -398,6 +400,13 @@ func paddleWebhook(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Webhook secret is not configured", http.StatusInternalServerError)
 		return
 	}
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Failed to read webhook body", http.StatusBadRequest)
+		return
+	}
+
+	r.Body = io.NopCloser(bytes.NewReader(body))
 	verifier := paddle.NewWebhookVerifier(secrete)
 
 	valid, err := verifier.Verify(r)
@@ -414,7 +423,36 @@ func paddleWebhook(w http.ResponseWriter, r *http.Request) {
 
 	log.Println("Paddle webhook signature verified")
 
-	w.WriteHeader(http.StatusOK)
+	r.Body = io.NopCloser(bytes.NewReader(body))
+	datassaved := service.SavePayment(body)
+	if datassaved != true {
+		http.Error(w, "Data not saved", http.StatusUnauthorized)
+		return
+	}
+	log.Printf("Paddle webhook body: %s", string(body))
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":  true,
+		"meassage": "payment successful",
+	})
+
+}
+
+func getuserid(w http.ResponseWriter, r *http.Request) {
+	userid, ok := r.Context().Value("user_id").(int64)
+
+	if !ok || userid == 0 {
+		log.Println("checkauth: missing user_id in context")
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(userid); err != nil {
+		http.Error(w, "Encoding error", 500)
+		return
+	}
 
 }
 
@@ -450,6 +488,7 @@ func main() {
 	mux.Handle("GET /api/geturls", middleware.AuthMiddleware(http.HandlerFunc(getuserurls)))
 	mux.Handle("DELETE /api/deleteurl", middleware.AuthMiddleware(http.HandlerFunc(deleteshortlink)))
 	mux.HandleFunc("POST /api/webhook/paddle", paddleWebhook)
+	mux.Handle("GET /api/getuserid", middleware.AuthMiddleware(http.HandlerFunc(getuserid)))
 	mux.HandleFunc("GET /api/login", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{

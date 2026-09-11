@@ -22,7 +22,7 @@ export async function getPaddle(): Promise<Paddle | undefined> {
   return paddleInstance;
 }
 
-export async function openCheckout(priceId: string) {
+export async function openCheckout(priceId: string, userId?: any) {
   console.log("[Paddle] Price ID:", priceId);
 
   if (!priceId) {
@@ -48,5 +48,8 @@ export async function openCheckout(priceId: string) {
         quantity: 1,
       },
     ],
+    customData: {
+      user_id: userId,
+    },
   });
 }
