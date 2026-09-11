@@ -51,6 +51,10 @@ function Dashboard() {
     lastName: 'Account',
     email: 'Signed in',
     plan: 'basic',
+    planselected: '',
+    amount: '',
+    paymentDate: '',
+    paymentExpire: '',
     paymentStatus: 'Unpaid',
     paymentMethod: 'Not Added Yet',
   })
@@ -111,14 +115,23 @@ function Dashboard() {
         if (!u) return
 
         if (isMounted) {
+          const rawStatus = (u.status || u.paymentStatus || '').toString().trim().toLowerCase()
+          const isPaid = rawStatus === 'paid'
+          const planName = u.planselected || u.plan || 'basic'
+
           setUser((prev) => ({
             ...prev,
             firstName: u.firstname || u.firstName || prev.firstName,
             lastName: u.lastname || u.lastName || prev.lastName,
             email: u.email || prev.email,
-            plan: u.plan || prev.plan,
-            paymentStatus: u.paymentStatus || prev.paymentStatus,
-            paymentMethod: u.paymentMethod || prev.paymentMethod,
+            plan: planName,
+            planselected: u.planselected || prev.planselected,
+            amount: u.amount || prev.amount,
+            paymentDate: u.payment_date || u.paymentDate || prev.paymentDate,
+            paymentExpire: u.payment_expire || u.paymentExpire || prev.paymentExpire,
+            paymentStatus: isPaid ? 'Paid' : (u.paymentStatus || prev.paymentStatus),
+            status: u.status || prev.status,
+            paymentMethod: isPaid ? 'Paddle Checkout (Active)' : prev.paymentMethod,
           }))
         }
       } catch {

@@ -32,7 +32,9 @@ export function SettingsTab({
             <div className="dash-info-group">
               <label>Current Plan</label>
               <div className="dash-info-value">
-                {user.plan === 'unlimited' ? 'Unlimited ($5/mo)' : 'Basic ($2/mo)'}
+                {user.paymentStatus === 'Paid'
+                  ? user.planselected || 'Active Paid Plan'
+                  : 'Unpaid / No Active Plan'}
               </div>
             </div>
           </div>

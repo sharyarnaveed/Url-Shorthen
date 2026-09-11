@@ -349,7 +349,7 @@ func userdata(w http.ResponseWriter, r *http.Request) {
 	}
 	rows, err := database.DB.Query(
 		r.Context(),
-		"SELECT firstname,lastname, email from users  WHERE id = $1",
+		"SELECT firstname,lastname, email,planselected,amount,payment_date,payment_expire,status from users  WHERE id = $1",
 		userid,
 	)
 	if err != nil {
@@ -364,9 +364,8 @@ func userdata(w http.ResponseWriter, r *http.Request) {
 
 	for rows.Next() {
 
-		var firstname, lastname, email string
-
-		if err := rows.Scan(&firstname, &lastname, &email); err != nil {
+		var firstname, lastname, email, planselected, amount, paymentdate, paymentexpire, status string
+		if err := rows.Scan(&firstname, &lastname, &email, &planselected, &amount, &paymentdate, &paymentexpire, &status); err != nil {
 			log.Println("getuserurls Scan error:", err)
 			http.Error(w, "Database scan error", 500)
 			return
@@ -374,9 +373,14 @@ func userdata(w http.ResponseWriter, r *http.Request) {
 
 		user = append(user, map[string]interface{}{
 
-			"firstname": firstname,
-			"lastname":  lastname,
-			"email":     email,
+			"firstname":      firstname,
+			"lastname":       lastname,
+			"email":          email,
+			"planselected":   planselected,
+			"amount":         amount,
+			"payment_date":   paymentdate,
+			"payment_expire": paymentexpire,
+			"status":         status,
 		})
 	}
 

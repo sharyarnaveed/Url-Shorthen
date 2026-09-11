@@ -76,7 +76,7 @@ export function OverviewTab({
             </span>
           </div>
           <div className="dash-metric-sub">
-            {user.paymentStatus === 'Paid' ? `${user.plan.toUpperCase()} Plan` : 'Action required'}
+            {user.paymentStatus === 'Paid' ? (user.planselected || 'Active Paid Plan') : 'Action required'}
           </div>
         </div>
       </div>

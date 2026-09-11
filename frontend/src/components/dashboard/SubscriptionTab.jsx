@@ -7,30 +7,60 @@ export function SubscriptionTab({
   handleSelectPlan,
   plans,
 }) {
+  const formatDate = (dateStr) => {
+    if (!dateStr) return 'N/A'
+    try {
+      const d = new Date(dateStr)
+      if (isNaN(d.getTime())) return dateStr
+      return d.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    } catch {
+      return dateStr
+    }
+  }
+
+  const isPaidUser = user.paymentStatus === 'Paid'
+
+  const checkIsCurrentPlan = (plan) => {
+    if (!isPaidUser) return false
+    const selected = (user.planselected || '').toLowerCase().trim()
+    const pId = (plan.id || '').toLowerCase().trim()
+    const pName = (plan.name || '').toLowerCase().trim()
+    const userPlan = (user.plan || '').toLowerCase().trim()
+
+    if (selected) {
+      if (selected === pId || selected === pName || selected.includes(pId) || pName.includes(selected)) {
+        return true
+      }
+    }
+    if (userPlan) {
+      if (userPlan === pId || userPlan.includes(pId) || pId.includes(userPlan)) {
+        return true
+      }
+    }
+    return isPaidUser
+  }
+
   return (
     <div className="dash-tab-content">
       {/* Current Subscription & Billing Card */}
       <section className="dash-card dash-subscription-header-card">
-        <div className="dash-card-header dash-flex-between flex-wrap gap-4">
-          <div>
-            <h2>Subscription &amp; Billing</h2>
-            <p>Manage your account subscription plan and payment status.</p>
-          </div>
-          <button
-            type="button"
-            className="dash-btn-secondary dash-demo-toggle-btn"
-            onClick={handleTogglePaymentStatus}
-          >
-            Demo Toggle Status: ({user.paymentStatus === 'Paid' ? 'Set Unpaid' : 'Set Paid'})
-          </button>
+        <div className="dash-card-header">
+          <h2>Subscription &amp; Billing</h2>
+          <p>Manage your account subscription plan and payment status.</p>
         </div>
 
         <div className="dash-status-box-clean">
           <div className="dash-status-item">
             <span className="dash-status-label">Current Status</span>
             <div className="dash-status-value-wrap">
-              <span className={`dash-status-pill dash-status-pill--${user.paymentStatus === 'Paid' ? 'paid' : 'unpaid'}`}>
-                {user.paymentStatus === 'Paid' ? 'Active Paid' : 'Payment Required'}
+              <span className={`dash-status-pill dash-status-pill--${isPaidUser ? 'paid' : 'unpaid'}`}>
+                {isPaidUser ? 'Active Paid' : 'Payment Required'}
               </span>
             </div>
           </div>
@@ -40,28 +70,35 @@ export function SubscriptionTab({
           <div className="dash-status-item">
             <span className="dash-status-label">Active Plan</span>
             <div className="dash-status-value">
-              {user.plan === 'pro' || user.plan === 'unlimited'
-                ? 'Pro Plan ($7/month)'
-                : user.plan === 'basic'
-                ? 'Basic Plan ($3/month)'
-                : 'No Active Plan'}
+              {user.planselected || (isPaidUser ? 'Active Plan' : 'No Active Plan')}
             </div>
           </div>
 
           <div className="dash-status-divider" />
 
           <div className="dash-status-item">
-            <span className="dash-status-label">Payment Method</span>
+            <span className="dash-status-label">Amount Paid</span>
             <div className="dash-status-value">
-              <CreditCard size={15} className="inline-icon" /> Hosted Checkout Page
+              {user.amount ? `$${user.amount}` : 'N/A'}
             </div>
           </div>
 
           <div className="dash-status-divider" />
 
           <div className="dash-status-item">
-            <span className="dash-status-label">Billing Cycle</span>
-            <div className="dash-status-value">Monthly Auto-Renewal</div>
+            <span className="dash-status-label">Payment Date</span>
+            <div className="dash-status-value">
+              {formatDate(user.paymentDate)}
+            </div>
+          </div>
+
+          <div className="dash-status-divider" />
+
+          <div className="dash-status-item">
+            <span className="dash-status-label">Expires On</span>
+            <div className="dash-status-value">
+              {formatDate(user.paymentExpire)}
+            </div>
           </div>
         </div>
       </section>
@@ -75,9 +112,7 @@ export function SubscriptionTab({
 
         <div className="dash-plans-grid">
           {plans.map((plan) => {
-            const isCurrentPlan =
-              user.paymentStatus === 'Paid' &&
-              (user.plan === plan.id || (user.plan === 'unlimited' && plan.id === 'pro'))
+            const isCurrentPlan = checkIsCurrentPlan(plan)
 
             return (
               <div
@@ -114,12 +149,13 @@ export function SubscriptionTab({
                   className={`dash-clean-plan-btn ${
                     isCurrentPlan ? 'dash-clean-plan-btn--current' : 'dash-clean-plan-btn--checkout'
                   }`}
-                  onClick={() => handleSelectPlan(plan)}
+                  disabled={isCurrentPlan}
+                  onClick={() => !isCurrentPlan && handleSelectPlan(plan)}
                 >
                   {isCurrentPlan ? (
                     <>
                       <Check size={16} />
-                      Current Active Plan
+                      Paid
                     </>
                   ) : (
                     <>

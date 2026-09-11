@@ -18,9 +18,7 @@ export function DashboardHeader({ user, handleLogout, setActiveTab }) {
             <span className={`dash-status-dot dash-status-dot--${user.paymentStatus === 'Paid' ? 'active' : 'inactive'}`} />
             <span className="dash-plan-name">
               {user.paymentStatus === 'Paid'
-                ? user.plan === 'unlimited'
-                  ? 'Unlimited Plan ($5/mo)'
-                  : 'Basic Plan ($2/mo)'
+                ? user.planselected || 'Active Paid Plan'
                 : 'Payment Unpaid'}
             </span>
             <button

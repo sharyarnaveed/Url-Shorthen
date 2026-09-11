@@ -8,7 +8,7 @@ export function UnpaidWarningBanner({ setActiveTab }) {
       </div>
       <div className="dash-warning-text">
         <strong>Action Required: Subscription Unpaid</strong>
-        <p>Your account requires an active paid plan ($2/mo Basic or $5/mo Unlimited) to shorten new links.</p>
+        <p>Your account requires an active paid subscription plan to shorten new links.</p>
       </div>
       <button
         type="button"

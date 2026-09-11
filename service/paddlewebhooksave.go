@@ -89,10 +89,6 @@ func SavePayment(data any) bool {
 	}
 
 	rowsAffected := result.RowsAffected()
-	if err != nil {
-		log.Println("error checking webhook event:", err)
-		return false
-	}
 
 	if rowsAffected == 0 {
 		log.Println("Webhook already processed:", eventid)
@@ -157,9 +153,10 @@ func SavePayment(data any) bool {
         planselected = $1,
         amount = $2,
         payment_date = $3,
-        payment_expire = $4
-    	WHERE id = $5 `,
-		planName, amount, curentperiodstart, periodenddate, userid,
+        payment_expire = $4,
+		status=$5
+    	WHERE id = $6 `,
+		planName, amount, curentperiodstart, periodenddate, "paid", userid,
 	)
 	if userssavingerror != nil {
 		log.Println("error saving subscription", subsciptionerror)
