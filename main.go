@@ -84,6 +84,7 @@ func gettheredirect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	go service.SaveAnalytics(getshortcode, r)
 	http.Redirect(w, r, url, http.StatusFound)
 }
 
