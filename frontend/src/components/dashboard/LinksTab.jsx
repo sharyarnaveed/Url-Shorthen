@@ -1,5 +1,6 @@
 import { Search } from 'lucide-react'
 import LinksTable from './LinksTable'
+import { SkeletonTable } from './SkeletonLoaders'
 
 export function LinksTab({
   searchQuery,
@@ -8,7 +9,9 @@ export function LinksTab({
   handleCopy,
   setQrModalLink,
   openDeleteConfirm,
+  onOpenAnalytics,
   setActiveTab,
+  isLoading,
 }) {
   return (
     <div className="dash-tab-content">
@@ -35,7 +38,9 @@ export function LinksTab({
           </div>
         </div>
 
-        {filteredLinks.length === 0 ? (
+        {isLoading ? (
+          <SkeletonTable rows={5} columns={6} />
+        ) : filteredLinks.length === 0 ? (
           <div className="dash-empty-state">
             <div className="dash-empty-icon"><Search size={28} /></div>
             <h3>No shortened URLs found</h3>
@@ -55,6 +60,7 @@ export function LinksTab({
             handleCopy={handleCopy}
             setQrModalLink={setQrModalLink}
             openDeleteConfirm={openDeleteConfirm}
+            onOpenAnalytics={onOpenAnalytics}
             showStatus={true}
             showActionLabels={true}
           />

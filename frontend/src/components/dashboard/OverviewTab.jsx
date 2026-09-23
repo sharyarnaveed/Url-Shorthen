@@ -9,6 +9,7 @@ import {
   Star,
 } from 'lucide-react'
 import LinksTable from './LinksTable'
+import { SkeletonMetricsGrid, SkeletonTable } from './SkeletonLoaders'
 
 export function OverviewTab({
   links,
@@ -24,7 +25,9 @@ export function OverviewTab({
   handleCopy,
   setQrModalLink,
   openDeleteConfirm,
+  onOpenAnalytics,
   setActiveTab,
+  isLoading,
 }) {
   const totalClicks = links.reduce((acc, curr) => acc + curr.clicks, 0)
   const topLink = [...links].sort((a, b) => b.clicks - a.clicks)[0]
@@ -33,53 +36,57 @@ export function OverviewTab({
   return (
     <div className="dash-tab-content">
       {/* Stats Metrics Cards */}
-      <div className="dash-metrics-grid">
-        <div className="dash-metric-card">
-          <div className="dash-metric-header">
-            <span className="dash-metric-title">Total Links</span>
-            <span className="dash-metric-icon"><Link2 size={18} /></span>
+      {isLoading ? (
+        <SkeletonMetricsGrid count={4} />
+      ) : (
+        <div className="dash-metrics-grid">
+          <div className="dash-metric-card">
+            <div className="dash-metric-header">
+              <span className="dash-metric-title">Total Links</span>
+              <span className="dash-metric-icon"><Link2 size={18} /></span>
+            </div>
+            <div className="dash-metric-value">{links.length}</div>
+            <div className="dash-metric-sub">Active short URLs</div>
           </div>
-          <div className="dash-metric-value">{links.length}</div>
-          <div className="dash-metric-sub">Active short URLs</div>
-        </div>
 
-        <div className="dash-metric-card">
-          <div className="dash-metric-header">
-            <span className="dash-metric-title">Total Clicks</span>
-            <span className="dash-metric-icon"><BarChart3 size={18} /></span>
+          <div className="dash-metric-card">
+            <div className="dash-metric-header">
+              <span className="dash-metric-title">Total Clicks</span>
+              <span className="dash-metric-icon"><BarChart3 size={18} /></span>
+            </div>
+            <div className="dash-metric-value">{totalClicks.toLocaleString()}</div>
+            <div className="dash-metric-sub">+18% this month</div>
           </div>
-          <div className="dash-metric-value">{totalClicks.toLocaleString()}</div>
-          <div className="dash-metric-sub">+18% this month</div>
-        </div>
 
-        <div className="dash-metric-card">
-          <div className="dash-metric-header">
-            <span className="dash-metric-title">Top Link</span>
-            <span className="dash-metric-icon"><Star size={18} /></span>
+          <div className="dash-metric-card">
+            <div className="dash-metric-header">
+              <span className="dash-metric-title">Top Link</span>
+              <span className="dash-metric-icon"><Star size={18} /></span>
+            </div>
+            <div className="dash-metric-value dash-metric-value--sm">
+              {topLink ? topLink.title : 'None yet'}
+            </div>
+            <div className="dash-metric-sub">
+              {topLink ? `${topLink.clicks} clicks` : 'Shorten a link to start'}
+            </div>
           </div>
-          <div className="dash-metric-value dash-metric-value--sm">
-            {topLink ? topLink.title : 'None yet'}
-          </div>
-          <div className="dash-metric-sub">
-            {topLink ? `${topLink.clicks} clicks` : 'Shorten a link to start'}
-          </div>
-        </div>
 
-        <div className="dash-metric-card">
-          <div className="dash-metric-header">
-            <span className="dash-metric-title">Payment Status</span>
-            <span className="dash-metric-icon"><CreditCard size={18} /></span>
-          </div>
-          <div className="dash-metric-value dash-metric-value--sm">
-            <span className={`dash-status-pill dash-status-pill--${user.paymentStatus === 'Paid' ? 'paid' : 'unpaid'}`}>
-              {user.paymentStatus}
-            </span>
-          </div>
-          <div className="dash-metric-sub">
-            {user.paymentStatus === 'Paid' ? (user.planselected || 'Active Paid Plan') : 'Action required'}
+          <div className="dash-metric-card">
+            <div className="dash-metric-header">
+              <span className="dash-metric-title">Payment Status</span>
+              <span className="dash-metric-icon"><CreditCard size={18} /></span>
+            </div>
+            <div className="dash-metric-value dash-metric-value--sm">
+              <span className={`dash-status-pill dash-status-pill--${user.paymentStatus === 'Paid' ? 'paid' : 'unpaid'}`}>
+                {user.paymentStatus}
+              </span>
+            </div>
+            <div className="dash-metric-sub">
+              {user.paymentStatus === 'Paid' ? (user.planselected || 'Active Paid Plan') : 'Action required'}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Shortener Tool Box */}
       <section className="dash-card dash-shortener-card">
@@ -192,14 +199,19 @@ export function OverviewTab({
           </button>
         </div>
 
-        <LinksTable
-          links={recentLinks}
-          handleCopy={handleCopy}
-          setQrModalLink={setQrModalLink}
-          openDeleteConfirm={openDeleteConfirm}
-          showStatus={false}
-          showActionLabels={false}
-        />
+        {isLoading ? (
+          <SkeletonTable rows={4} columns={5} />
+        ) : (
+          <LinksTable
+            links={recentLinks}
+            handleCopy={handleCopy}
+            setQrModalLink={setQrModalLink}
+            openDeleteConfirm={openDeleteConfirm}
+            onOpenAnalytics={onOpenAnalytics}
+            showStatus={false}
+            showActionLabels={false}
+          />
+        )}
       </section>
     </div>
   )

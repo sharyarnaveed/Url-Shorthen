@@ -1,10 +1,11 @@
-import { Copy, QrCode, Trash2 } from 'lucide-react'
+import { BarChart3, Copy, QrCode, Trash2 } from 'lucide-react'
 
 export function LinksTable({
   links,
   handleCopy,
   setQrModalLink,
   openDeleteConfirm,
+  onOpenAnalytics,
   showStatus = false,
   showActionLabels = false,
 }) {
@@ -16,7 +17,7 @@ export function LinksTable({
             <th>{showStatus ? 'Title & Destination' : 'Title / Target URL'}</th>
             <th>Short Link</th>
             <th>{showStatus ? 'Date Created' : 'Created'}</th>
-            <th>Clicks</th>
+            <th>Analytics / Clicks</th>
             {showStatus && <th>Status</th>}
             <th>Actions</th>
           </tr>
@@ -42,9 +43,16 @@ export function LinksTable({
               </td>
               <td>{link.createdAt}</td>
               <td>
-                <span className="dash-clicks-badge">
-                  {showStatus ? `${link.clicks} clicks` : link.clicks}
-                </span>
+                <button
+                  type="button"
+                  className="dash-analytics-badge-btn"
+                  onClick={() => onOpenAnalytics && onOpenAnalytics(link)}
+                  title="Click to view detailed analytics & graphs for this short code"
+                >
+                  <BarChart3 size={14} />
+                  <span>{link.clicks} {link.clicks === 1 ? 'click' : 'clicks'}</span>
+                  <span className="dash-analytics-tag">View Graphs</span>
+                </button>
               </td>
               {showStatus && (
                 <td>
@@ -53,6 +61,15 @@ export function LinksTable({
               )}
               <td>
                 <div className="dash-action-buttons">
+                  <button
+                    type="button"
+                    className="dash-icon-btn dash-icon-btn--analytics"
+                    onClick={() => onOpenAnalytics && onOpenAnalytics(link)}
+                    title={showActionLabels ? 'View Analytics' : 'Analytics & Graphs'}
+                  >
+                    <BarChart3 size={showActionLabels ? 14 : 16} />
+                    {showActionLabels && ' Analytics'}
+                  </button>
                   <button
                     type="button"
                     className="dash-icon-btn"

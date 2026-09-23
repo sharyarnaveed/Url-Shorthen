@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
+import { useDashboard } from '../context/DashboardContext'
 import { getPaddle, openCheckout } from '../lib/Paddle'
 
 import ToastNotification from '../components/dashboard/ToastNotification'
@@ -13,6 +14,7 @@ import SubscriptionTab from '../components/dashboard/SubscriptionTab'
 import SettingsTab from '../components/dashboard/SettingsTab'
 import QrCodeModal from '../components/dashboard/QrCodeModal'
 import DeleteConfirmModal from '../components/dashboard/DeleteConfirmModal'
+import AnalyticsModal from '../components/dashboard/AnalyticsModal'
 
 import './Dashboard.css'
 
@@ -42,22 +44,11 @@ function Dashboard() {
   const navigate = useNavigate()
   const { logout } = useAuth()
 
+  // Shared context — data persists across route changes
+  const { user, setUser, links, setLinks, isLoadingUser, isLoadingLinks, refreshLinks } = useDashboard()
+
   // Navigation tab: 'overview' | 'links' | 'payment' | 'settings'
   const [activeTab, setActiveTab] = useState('overview')
-
-  // User state
-  const [user, setUser] = useState({
-    firstName: 'User',
-    lastName: 'Account',
-    email: 'Signed in',
-    plan: 'basic',
-    planselected: '',
-    amount: '',
-    paymentDate: '',
-    paymentExpire: '',
-    paymentStatus: 'Unpaid',
-    paymentMethod: 'Not Added Yet',
-  })
 
   // URL Shortening State
   const [longUrl, setLongUrl] = useState('')
@@ -65,9 +56,6 @@ function Dashboard() {
   const [isShortening, setIsShortening] = useState(false)
   const [newShortLink, setNewShortLink] = useState(null)
   const [shortenError, setShortenError] = useState('')
-
-  // Links List (loaded from DB via GET /api/geturls)
-  const [links, setLinks] = useState([])
 
   // Search filter
   const [searchQuery, setSearchQuery] = useState('')
@@ -78,6 +66,7 @@ function Dashboard() {
   // Modal states
   const [qrModalLink, setQrModalLink] = useState(null)
   const [deleteConfirmLink, setDeleteConfirmLink] = useState(null)
+  const [analyticsModalLink, setAnalyticsModalLink] = useState(null)
 
   // Password state
   const [passwordForm, setPasswordForm] = useState({
@@ -98,55 +87,6 @@ function Dashboard() {
   })
   const [isUpdatingPayment, setIsUpdatingPayment] = useState(false)
 
-  // Fetch user profile on mount
-  useEffect(() => {
-    let isMounted = true
-    const fetchUserData = async () => {
-      try {
-        const base = API_BASE_URL.replace(/\/$/, '')
-        const res = await fetch(`${base}/getuserdata`, {
-          method: 'GET',
-          credentials: 'include',
-        })
-        if (!res.ok) return
-        const data = await res.json()
-
-        const u = Array.isArray(data) ? data[0] : data
-        if (!u) return
-
-        if (isMounted) {
-          const rawStatus = (u.status || u.paymentStatus || '').toString().trim().toLowerCase()
-          const isPaid = rawStatus === 'paid'
-          const planName = u.planselected || u.plan || 'basic'
-
-          setUser((prev) => ({
-            ...prev,
-            firstName: u.firstname || u.firstName || prev.firstName,
-            lastName: u.lastname || u.lastName || prev.lastName,
-            email: u.email || prev.email,
-            plan: planName,
-            planselected: u.planselected || prev.planselected,
-            amount: u.amount || prev.amount,
-            paymentDate: u.payment_date || u.paymentDate || prev.paymentDate,
-            paymentExpire: u.payment_expire || u.paymentExpire || prev.paymentExpire,
-            paymentStatus: isPaid ? 'Paid' : (u.paymentStatus || prev.paymentStatus),
-            status: u.status || prev.status,
-            paymentMethod: isPaid ? 'Paddle Checkout (Active)' : prev.paymentMethod,
-          }))
-        }
-      } catch {
-        /* ignore */
-      }
-    }
-
-    fetchUserData()
-    return () => {
-      isMounted = false
-    }
-  }, [])
-
-
-
   // Toast auto dismiss
   useEffect(() => {
     if (!toast) return
@@ -154,63 +94,17 @@ function Dashboard() {
     return () => clearTimeout(timer)
   }, [toast])
 
-  const showToast = (type, message) => {
+  const showToast = useCallback((type, message) => {
     setToast({ type, message })
-  }
-
-  const handleLogout = () => {
-    logout()
-    navigate('/login', { replace: true })
-  }
-
-  // Helper to fetch user specific URLs from GET /api/geturls
-  const loadUserUrls = async () => {
-    try {
-      const res = await fetch(`${API_BASE_URL.replace(/\/$/, '')}/geturls`, {
-        method: 'GET',
-        credentials: 'include',
-      })
-      if (!res.ok) return null
-
-      const data = await res.json()
-      const rawList = Array.isArray(data) ? data : (data === null ? [] : null)
-      if (rawList !== null) {
-        const shortUrlBase = SHORT_URL_BASE.replace(/\/$/, '')
-        return rawList.map((item) => {
-          const fullShortUrl = `${shortUrlBase}/${item.short_code}`
-          return {
-            id: item.id,
-            originalUrl: item.original_url,
-            shortCode: fullShortUrl,
-            fullShortUrl: fullShortUrl,
-            title: item.title || item.original_url.replace(/^https?:\/\//, '').split('/')[0] || 'Short Link',
-            createdAt: new Date().toISOString().split('T')[0],
-            clicks: 0,
-            status: 'Active',
-          }
-        })
-      }
-    } catch {
-      /* ignore fetch error */
-    }
-    return null
-  }
-
-  // Fetch user URLs on mount
-  useEffect(() => {
-    let isMounted = true
-    loadUserUrls().then((formatted) => {
-      if (isMounted && formatted !== null) {
-        setLinks(formatted)
-      }
-    })
-    return () => {
-      isMounted = false
-    }
   }, [])
 
+  const handleLogout = useCallback(() => {
+    logout()
+    navigate('/login', { replace: true })
+  }, [logout, navigate])
+
   // Handle URL Shorten
-  const handleShorten = async (e) => {
+  const handleShorten = useCallback(async (e) => {
     e.preventDefault()
     const trimmedUrl = longUrl.trim()
     const trimmedTitle = customTitle.trim()
@@ -268,10 +162,7 @@ function Dashboard() {
       setCustomTitle('')
       showToast('success', 'URL shortened successfully!')
 
-      const refreshed = await loadUserUrls()
-      if (refreshed) {
-        setLinks(refreshed)
-      }
+      await refreshLinks()
     } catch (err) {
       const msg = err.message || 'Failed to shorten URL.'
       setShortenError(msg)
@@ -279,20 +170,20 @@ function Dashboard() {
     } finally {
       setIsShortening(false)
     }
-  }
+  }, [longUrl, customTitle, user.paymentStatus, showToast, setLinks, refreshLinks])
 
   // Copy to clipboard helper
-  const handleCopy = async (text) => {
+  const handleCopy = useCallback(async (text) => {
     try {
       await navigator.clipboard.writeText(text)
       showToast('success', 'Copied short link to clipboard!')
     } catch {
       showToast('error', 'Could not copy link.')
     }
-  }
+  }, [showToast])
 
   // Delete Link
-  const handleDeleteLink = async (id) => {
+  const handleDeleteLink = useCallback(async (id) => {
     const numericId = Number(id)
     if (Number.isNaN(numericId)) {
       showToast('error', 'Invalid link id.')
@@ -314,34 +205,30 @@ function Dashboard() {
       }
 
       showToast('success', 'Short link deleted.')
-
-      const refreshed = await loadUserUrls()
-      if (refreshed !== null) {
-        setLinks(refreshed)
-      }
+      await refreshLinks()
       return
     } catch (err) {
       showToast('error', err?.message || 'Failed to delete link.')
     }
-  }
+  }, [showToast, refreshLinks])
 
-  const openDeleteConfirm = (link) => {
+  const openDeleteConfirm = useCallback((link) => {
     setDeleteConfirmLink(link)
-  }
+  }, [])
 
-  const cancelDeleteConfirm = () => {
+  const cancelDeleteConfirm = useCallback(() => {
     setDeleteConfirmLink(null)
-  }
+  }, [])
 
-  const confirmDeleteLink = async () => {
+  const confirmDeleteLink = useCallback(async () => {
     if (!deleteConfirmLink) return
     const linkToDelete = deleteConfirmLink
     setDeleteConfirmLink(null)
     await handleDeleteLink(linkToDelete.id)
-  }
+  }, [deleteConfirmLink, handleDeleteLink])
 
   // Handle Change Password
-  const handleChangePassword = (e) => {
+  const handleChangePassword = useCallback((e) => {
     e.preventDefault()
     setPasswordSuccess('')
     setPasswordError('')
@@ -362,10 +249,16 @@ function Dashboard() {
     setPasswordSuccess('Password updated successfully!')
     setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
     showToast('success', 'Your password has been changed.')
-  }
+  }, [passwordForm, showToast])
+
+  // Navigate to Analytics Detail Page
+  const handleOpenAnalytics = useCallback((link) => {
+    const code = link.rawShortCode || (link.shortCode ? link.shortCode.split('/').pop() : link.id)
+    navigate(`/analytics/${code}`, { state: { link } })
+  }, [navigate])
 
   // Handle Plan Selection
-  const handleSelectPlan = async (plan) => {
+  const handleSelectPlan = useCallback(async (plan) => {
     let priceId = ''
     if (plan.id === 'basic') {
       priceId = import.meta.env.VITE_BASIC_PRICE_PADDLE
@@ -387,10 +280,10 @@ function Dashboard() {
 
     setSelectedPlanForPayment(plan.id)
     console.log(`[Plan Selected] Name: ${plan.name}, Price: $${plan.price}/mo, ID: ${plan.id}`)
-  }
+  }, [])
 
   // Handle Payment Status Update / Plan Subscription
-  const handleUpdatePayment = (e) => {
+  const handleUpdatePayment = useCallback((e) => {
     e.preventDefault()
     console.log('[Confirm & Activate Subscription] Button clicked!')
     console.log('[Payment Details Submitted]:', {
@@ -414,10 +307,10 @@ function Dashboard() {
       setIsUpdatingPayment(false)
       showToast('success', `Payment confirmed! Activated ${selectedPlanForPayment === 'unlimited' ? 'Unlimited Plan ($5/mo)' : 'Basic Plan ($2/mo)'}.`)
     }, 800)
-  }
+  }, [selectedPlanForPayment, paymentForm, setUser, showToast])
 
   // Toggle plan payment state
-  const handleTogglePaymentStatus = () => {
+  const handleTogglePaymentStatus = useCallback(() => {
     const newStatus = user.paymentStatus === 'Paid' ? 'Unpaid' : 'Paid'
     console.log('[Demo Toggle Status] Button clicked. Changing status to:', newStatus)
     setUser((prev) => ({
@@ -425,14 +318,17 @@ function Dashboard() {
       paymentStatus: newStatus,
     }))
     showToast(newStatus === 'Paid' ? 'success' : 'error', `Payment status changed to: ${newStatus}`)
-  }
+  }, [user.paymentStatus, setUser, showToast])
 
-  // Filtered links for Links tab
-  const filteredLinks = links.filter(
-    (l) =>
-      l.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      l.originalUrl.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      l.shortCode.toLowerCase().includes(searchQuery.toLowerCase())
+  // Filtered links for Links tab — memoized to avoid recalculation on every render
+  const filteredLinks = useMemo(() =>
+    links.filter(
+      (l) =>
+        l.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        l.originalUrl.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        l.shortCode.toLowerCase().includes(searchQuery.toLowerCase())
+    ),
+    [links, searchQuery]
   )
 
   return (
@@ -478,7 +374,9 @@ function Dashboard() {
             handleCopy={handleCopy}
             setQrModalLink={setQrModalLink}
             openDeleteConfirm={openDeleteConfirm}
+            onOpenAnalytics={handleOpenAnalytics}
             setActiveTab={setActiveTab}
+            isLoading={isLoadingLinks}
           />
         )}
 
@@ -491,7 +389,9 @@ function Dashboard() {
             handleCopy={handleCopy}
             setQrModalLink={setQrModalLink}
             openDeleteConfirm={openDeleteConfirm}
+            onOpenAnalytics={handleOpenAnalytics}
             setActiveTab={setActiveTab}
+            isLoading={isLoadingLinks}
           />
         )}
 
