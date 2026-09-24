@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -264,11 +265,14 @@ func getuserurls(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		analytics := service.GetServiceAnalytics(shortcode)
+		fmt.Println(analytics)
 		user = append(user, map[string]interface{}{
 			"id":           id,
 			"title":        title,
 			"original_url": originalurl,
 			"short_code":   shortcode,
+			"analytics":    analytics,
 		})
 	}
 
