@@ -41,6 +41,12 @@ type DELETLINK struct {
 	ID int `json:"id"`
 }
 
+type CHANGEPASSSWORD struct {
+	CURRENTPASSWORD string `json:"currentpassword"`
+	NEWPASSWORD     string `json:"newpassword"`
+	REPASSWORD      string `json:"repassword"`
+}
+
 func sendtoservice(w http.ResponseWriter, r *http.Request) {
 	var userurl CreateURLREQUEST
 	err := json.NewDecoder(r.Body).Decode(&userurl)
@@ -465,6 +471,43 @@ func getuserid(w http.ResponseWriter, r *http.Request) {
 
 }
 
+func changepassword(w http.ResponseWriter, r *http.Request) {
+	userid, ok := r.Context().Value("user_id").(int64)
+	if !ok || userid == 0 {
+		log.Println("checkauth: missing user_id in context")
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var req CHANGEPASSSWORD
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	if req.CURRENTPASSWORD == "" || req.NEWPASSWORD == "" || req.REPASSWORD == "" {
+		http.Error(w, "Missing Data", http.StatusBadRequest)
+		return
+	}
+
+	if req.NEWPASSWORD != req.REPASSWORD {
+		http.Error(w, "Passwords are Not Same", http.StatusBadRequest)
+		return
+	}
+
+	responce, paswordchangesuccess := service.Changepasswords(req.CURRENTPASSWORD, req.NEWPASSWORD, int(userid))
+	if !paswordchangesuccess {
+		http.Error(w, responce, http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":  true,
+		"meassage": responce,
+	})
+}
+
 func main() {
 
 	err := godotenv.Load()
@@ -498,6 +541,7 @@ func main() {
 	mux.Handle("DELETE /api/deleteurl", middleware.AuthMiddleware(http.HandlerFunc(deleteshortlink)))
 	mux.HandleFunc("POST /api/webhook/paddle", paddleWebhook)
 	mux.Handle("GET /api/getuserid", middleware.AuthMiddleware(http.HandlerFunc(getuserid)))
+	mux.Handle("POST /api/updatepassword", middleware.AuthMiddleware(http.HandlerFunc(changepassword)))
 	mux.HandleFunc("GET /api/login", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
